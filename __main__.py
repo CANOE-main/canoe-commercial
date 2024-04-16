@@ -2,6 +2,6 @@
 For calling from command line
 """
 
-import residential_sector
+import commercial_sector
 
-residential_sector.build_database()
+commercial_sector.build_database()
