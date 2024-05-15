@@ -27,7 +27,7 @@ def build_database():
 
     if config.params['clone_to_xlsx']: utils.database_converter().clone_sqlite_to_excel()
 
-    prep_high_res_testing()
+    #prep_high_res_testing()
 
     print(f"Commercial sector aggregated into {os.path.basename(config.database_file)}\n")
 
@@ -65,12 +65,12 @@ def prep_high_res_testing():
 
     emis = {
         2021: 1.00,
-        2025: 0.85,
-        2030: 0.7,
-        2035: 0.5,
-        2040: 0.30,
-        2045: 0.15,
-        2050: 0.00
+        2025: 0.90,
+        2030: 0.80,
+        2035: 0.70,
+        2040: 0.60,
+        2045: 0.50,
+        2050: 0.40
     }
                 
     rep_days = [
@@ -110,20 +110,25 @@ def prep_high_res_testing():
 
     # Add fuel imports and costs
     for fuel, cost in fuel_costs.items():
+        for region in config.model_regions:
             for period in config.model_periods:
                 curs.execute(f"""REPLACE INTO
                             CostVariable(regions, periods, tech, vintage, cost_variable, cost_variable_units, data_cost_year, data_curr, data_flags)
                             VALUES('{region}', {period}, 'C_IMP_{fuel}', {config.model_periods[0]}, {cost}, 'TEST VAL M$/PJ', 2020, 'CAD', 'TEST')""")
 
+    # Emissions limit by province
     for region in config.model_regions:
         for period in config.model_periods:
             curs.execute(f"""REPLACE INTO
                         EmissionLimit(regions, periods, emis_comm, emis_limit, emis_limit_units)
                         VALUES('{region}', {period}, "CO2eq", {emis[period]*base_emis[region]}, "ktCO2eq")""")
-        
+    
+    conn.commit()
+    conn.execute("VACUUM;")
+    
     conn.commit()
     conn.close()
-
+    
     print("Finished.")
 
 

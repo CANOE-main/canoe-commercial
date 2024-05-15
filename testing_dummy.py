@@ -17,15 +17,8 @@ from io import StringIO
 import numpy as np
 from matplotlib import pyplot as pp
 from datetime import datetime
+import weather_mapping
 
-df = pd.DataFrame(index=pd.date_range("2020-01-01 00:00:00","2020-12-31 23:00:00",freq='1h'))
-df['time'] = pd.date_range("2020-01-01 00:00:00","2020-12-31 23:00:00",freq='1h')
-df['n'] = range(8784)
+df = weather_mapping.get_weather_data(config.params['weather']['ca_temperature_url'])
 
-print(df)
-
-df = utils.realign_timezone(df, from_utc_offset=-4, time_col='time')
-
-print(df)
-
-print(config.gdp_index['ON'])
+df.to_csv("on_temp.csv")

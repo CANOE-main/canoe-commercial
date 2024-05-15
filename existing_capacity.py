@@ -238,11 +238,12 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
         if exs_data['cap'] == 0: continue # no existing capacity -> no process
 
+        # NOT CURRENTLY IN USE - omitting minACF instead
         # Annual capacity factor cannot be higher than the area under the DSD curve
         # otherwise the peak output of a process must be higher than its capacity allows (impossible)
         # since all end use outputs follow the same normalised curve as the DSD
-        dsd = df_dsd[end_use]
-        acf_lim = dsd.mean() / dsd.max() * (1 - config.params['acf_buffer'])
+        #dsd = df_dsd[end_use]
+        #acf_lim = dsd.mean() / dsd.max() * (1 - config.params['acf_buffer'])
 
 
         ## Technologies
@@ -329,21 +330,21 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
         reference = comstock_ref
 
-        if acf > acf_lim:
-                acf = acf_lim
-                note += f". Bounded to mean(DSD)/max(DSD) for {tech_config['end_use']}"
-                print(f"Warning! Annual capacity factor for {region} {tech} {tech_config['end_use']} was too high and had to be bounded. "
-                      "ACF cannot be higher than mean(DSD)/max(DSD) or the model will have no solution.")
+        #if acf > acf_lim:
+        #        acf = acf_lim
+        #        note += f". Bounded to mean(DSD)/max(DSD) for {tech_config['end_use']}"
+        #        print(f"Warning! Annual capacity factor for {region} {tech} {tech_config['end_use']} was too high and had to be bounded. "
+        #              "ACF cannot be higher than mean(DSD)/max(DSD) or the model will have no solution.")
 
         for period in config.model_periods:
 
             if max(vints) + life <= period: continue # no vintage would live this long
 
-            curs.execute(f"""REPLACE INTO
-                        MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', {period}, '{tech}', '{eu_config['comm']}', {acf*0.99}, '{note}. Times 0.99 for computational slack.',
-                        '{reference}', {comstock_year}, 4, 2, 1, {utils.dq_time(comstock_year, period)}, 3, 3)""")
+            #curs.execute(f"""REPLACE INTO
+            #            MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
+            #            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+            #            VALUES('{region}', {period}, '{tech}', '{eu_config['comm']}', {acf*0.99}, '{note}. Times 0.99 for computational slack.',
+            #            '{reference}', {comstock_year}, 4, 2, 1, {utils.dq_time(comstock_year, period)}, 3, 3)""")
             curs.execute(f"""REPLACE INTO
                         MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
@@ -363,6 +364,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     eu_config: pd.Series = config.end_use_demands.loc['other']
     tech_config: pd.Series = config.new_techs.loc[config.new_techs['end_use'] == 'other'].iloc[0]
     dsd = df_dsd['other'].to_numpy() # faster
+    elc_fact = config.params['other_electrification_factor']
 
     if not tech_config['include_new']: return # maybe someone will want to skip all this
 
@@ -434,15 +436,15 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
             tis = ti_splits[fuel]
 
-            # Linear interpolation towards only electricity
-            lin_f = (period - base_year)/(config.model_periods[-1] - base_year)
-            if fuel == 'electricity': tis = tis + (1 - tis) * lin_f # elc -> 1
-            else: tis = tis * (1 - lin_f) # all others -> 0
+            # Linear interpolation towards reducing non-elc fuels by electrification factor
+            lin_f = (period - base_year)/(config.model_periods[-1] - base_year) # 0 -> 1 linear factor over time
+            if fuel == 'electricity': target = elc_fact + tis * ( 1 - elc_fact ) # elc increases
+            else: target = tis * (1 - elc_fact) # all others decrease by elc_fact
 
-            note = (f"Secondary energy consumption by fuel (NRCan, {base_year}) minus space heating and cooling. "
-                    f"Linear interpolation from {base_year} shares to exclusively electricity. "
-                    "Simple assumption to make a net-zero constraint feasible.")
-            reference = nrcan_ref
+            tis = tis + (target - tis) * lin_f # elc -> 1
+
+            note = f"Secondary energy consumption by fuel (NRCan, {base_year}) minus space heating and cooling. {config.params['oef_note']}"
+            reference = f"{nrcan_ref}; {config.params['oef_reference']}"
             curs.execute(f"""REPLACE INTO
                         TechInputSplit(regions, periods, input_comm, tech, ti_split, ti_split_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)

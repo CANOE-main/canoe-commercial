@@ -23,15 +23,24 @@ final_currency: 'CAD' # Not configured to output currencies other than CAD yet
 final_currency_year: 2020
 inflation_index: 'gdp_deflator' # gdp_deflator, general_cpi, energy_and_petroleum, industrial, construction_non_residential
 
-# Annual capacity factor must be less than mean(DSD)/peak(DSD) or it cannot possibly have a capacity
+# Other demand electrification factor
+# Reduces consumption of all fuels other than electricity by this fraction, and replaces them with electricity by final period
+# Canada Energy Futures puts this at around 0.65 from 2020 -> 2050
+other_electrification_factor: 0.65
+oef_note: "Assumed that 65% of non-electric fuel consumption is 1:1 switched for electricity by 2050, changing linearly (CER, 2023)"
+oef_reference: "CER. (2023). Canadas Energy Future Data Appendices [dataset]. https://doi.org/10.35002/ZJR8-8X75"
+
+# NOT CURRENTLY IN USE - just omitting minACF instead
+# Annual capacity factor must be less than mean(DSD)/peak(DSD) or the model will be infeasible
 # ACF will be clamped to an upper bound of mean(DSD)/peak(DSD) x (1 - acf_buffer)
 # Try increasing this if the model is infeasible
 # The ACF limit changes if DSD is changed (e.g. during representative day selection/weighting) so a larger buffer is safer
-acf_buffer: 0.05
+#acf_buffer: 0.05
 
 # Ignore existing capacity which is less than this times total existing capacity, per end use
 # Straggler technologies lead to data issues (e.g. shows in Canadian province but not in analogue US state)
 # These tiny existing capacities also have minimal impact on model outcomes and only add more variables to solve
+# Try increasing if sector construction throws missing key errors (e.g. 'oil' or 'space cooling', 'natural gas')
 existing_capacity_tolerance: 0.02
 
 # Set DSD to zero if less than this times hourly average (i.e. dsd(h) = 0 if dsd(h) < tol * mean(dsd))
@@ -50,9 +59,9 @@ force_download: false # Forces downloading data again instead of using cached ve
 show_plots: true
 include_dsd: true # Aggregating DSDs is slow
 include_imports: true # Aggregates dummy import technologies for fuels
-include_emissions: true
+include_emissions: false
 include_furnace_fans: true # Whether to include electricity consumption of fans in space heating
-clone_to_xlsx: false
+clone_to_xlsx: true
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/com_<r>_e_<t>.xls"
 nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'

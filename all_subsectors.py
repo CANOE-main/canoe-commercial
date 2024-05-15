@@ -140,6 +140,15 @@ def post_process():
     conn.commit()
     conn.close()
 
+    
+    """
+    ##############################################################
+        References
+    ##############################################################
+    """
+
+    utils.fill_references_table()
+
     print(f"Post-aggregation complete.\n")
 
 

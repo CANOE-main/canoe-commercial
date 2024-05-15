@@ -31,11 +31,12 @@ def aggregate_region(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
         end_use = tech_config['end_use']
 
+        # NOT CURRENTLY IN USE - omitting minACF instead
         # Annual capacity factor cannot be higher than the area under the DSD curve
         # otherwise the peak output of a process must be higher than its capacity allows (impossible)
         # since all end use outputs follow the same normalised curve as the DSD
-        dsd = df_dsd[end_use]
-        acf_lim = dsd.mean() / dsd.max() * (1 - config.params['acf_buffer'])
+        #dsd = df_dsd[end_use]
+        #acf_lim = dsd.mean() / dsd.max() * (1 - config.params['acf_buffer'])
 
         if end_use != 'space heating' and end_use != 'space cooling': continue
         if (end_use, tech_config['fuel']) not in df_exs.index: continue # insufficient data for this technology
@@ -120,19 +121,19 @@ def aggregate_region(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
         note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
         reference = comstock_ref
 
-        if acf > acf_lim:
-            acf = acf_lim
-            note += f". Bounded to mean(DSD)/max(DSD) for {end_use}"
-            print(f"Warning! Annual capacity factor for {region} {tech} {tech_config['end_use']} was too high and had to be bounded. "
-                    "ACF cannot be higher than mean(DSD)/max(DSD) or the model will have no solution.")
+        #if acf > acf_lim:
+        #    acf = acf_lim
+        #    note += f". Bounded to mean(DSD)/max(DSD) for {end_use}"
+        #    print(f"Warning! Annual capacity factor for {region} {tech} {tech_config['end_use']} was too high and had to be bounded. "
+        #            "ACF cannot be higher than mean(DSD)/max(DSD) or the model will have no solution.")
             
         for period in config.model_periods:
                 
-            curs.execute(f"""REPLACE INTO
-                        MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
-                        reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
-                        VALUES('{region}', {period}, '{tech}', '{eu_config['comm']}', {acf*0.99}, '{note}. Times 0.99 for computational slack.',
-                        '{reference}', {comstock_year}, 4, 2, 1, {utils.dq_time(comstock_year, period)}, 3, 3)""")
+            #curs.execute(f"""REPLACE INTO
+            #            MinAnnualCapacityFactor(regions, periods, tech, output_comm, min_acf, min_acf_notes,
+            #            reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
+            #            VALUES('{region}', {period}, '{tech}', '{eu_config['comm']}', {acf*0.99}, '{note}. Times 0.99 for computational slack.',
+            #            '{reference}', {comstock_year}, 4, 2, 1, {utils.dq_time(comstock_year, period)}, 3, 3)""")
             curs.execute(f"""REPLACE INTO
                         MaxAnnualCapacityFactor(regions, periods, tech, output_comm, max_acf, max_acf_notes,
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)

@@ -14,6 +14,6 @@ C_SPH_NG_BLR-NEW,TRUE,gas_boiler 2017 typical,space heating,gas boiler - new,nat
 C_SPH_OIL_FRN-NEW,TRUE,oil_furnace 2017 typical/ 2023 standard,space heating,oil furnace - new,oil
 C_SPH_OIL_BLR-NEW,TRUE,oil_boiler 2030 typical,space heating,oil boiler - new,oil
 C_SPC_AC_ROOF-NEW,TRUE,rooftop_AC 2030 typical/ 2023 standard,space cooling,rooftop air-conditioning - new,electricity
-C_SPC_AC_WALL-NEW,TRUE,wall-window_room_AC 2030 typical,space cooling,wall-window air-conditioning - new,electricity
+C_SPC_AC_WALL-NEW,FALSE,wall-window_room_AC 2030 typical,space cooling,wall-window air-conditioning - new,electricity
 C_SPC_AC_RES-NEW,TRUE,res_type_central_AC 2023 standard north,space cooling,residential-type central air conditioning - new,electricity
 C_OTHER,TRUE,,other,all other commercial energy demand,
