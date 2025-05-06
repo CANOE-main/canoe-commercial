@@ -125,6 +125,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
     cdm_exs['avg_fixed_cost'] = cdm_exs['maintcst'] * cdm_exs['serv_share'] # fixed cost indexed to output service energy share
     
     cdm_exs = cdm_exs.groupby(['serv','fuel']).sum()
+    df_exs = df_exs.drop([euf for euf in df_exs.index if euf not in cdm_exs.index]) # no service share so drop this end-use-fuel combo
     for col in ['avg_eff','avg_life','avg_fixed_cost']:
         df_exs[col] = df_exs.index.map(lambda euf: cdm_exs.loc[euf, col])
 
@@ -174,15 +175,15 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         Demands
     ##############################################################
     """
-
+    
     for end_use, dem in df_dem.items():
 
         if dem == 0: continue
 
         eu_config = config.end_use_demands.loc[end_use]
         dsd = df_dsd[end_use].to_numpy()
-
-        ann_dem = dem * config.gdp_index[region] # annual demand indexed to gdp growth
+        
+        ann_dem = dem * config.gdp_index # annual demand indexed to gdp growth
 
         ## Commodities
         curs.execute(f"""REPLACE INTO
@@ -210,7 +211,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         ## Demand
         for period in config.model_periods:
             
-            dem = ann_dem.loc[period]
+            dem = ann_dem.loc[period].iloc[0]
             note = (f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
                     f"indexed to projected provincial gdp growth (CER, {config.params['gdp_data_year']})")
             reference = f"{nrcan_ref}; {aeo_ref}; {config.params['gdp_reference']}"
@@ -219,6 +220,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                         reference, data_year, dq_est, dq_rel, dq_comp, dq_time, dq_geog, dq_tech)
                         VALUES('{region}', {period}, '{eu_config['comm']}', {dem}, '({eu_config['dem_unit']})', '{note}',
                         '{reference}', {base_year}, 3, 1, 1, 1, 3, 3)""")
+            
 
 
     """
@@ -384,7 +386,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     sec = utils.get_compr_db(region, 1, 3, 8)[base_year].astype(float)
 
     # Demand is sum of secondary energies minus those from space heating and cooling (already accounted for)
-    ann_dem = (sec.sum() - sec_sphc.sum()) * config.gdp_index[region] # annual demand indexed to gdp growth
+    ann_dem = (sec.sum() - sec_sphc.sum()) * config.gdp_index # annual demand indexed to gdp growth
 
     # Aggregate heavy/light oil and propane/natural gas as we dont have that technological resolution
     sec['oil'] = sec['light fuel oil and kerosene'] + sec['heavy fuel oil']
@@ -473,7 +475,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     ## Demand
     for period in config.model_periods:
         
-        dem = ann_dem.loc[period]
+        dem = ann_dem.loc[period].iloc[0]
         note = f"Annual secondary energy consumption summed over all fuels minus space heating and cooling (NRCan, {base_year})"
         reference = f"{nrcan_ref}; {config.params['gdp_reference']}"
         curs.execute(f"""REPLACE INTO

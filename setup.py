@@ -64,6 +64,7 @@ class config:
         cls._get_aeo_data(cls._instance)
         cls._get_population_projections(cls._instance)
         cls._get_gdp_projections(cls._instance)
+        cls._get_rninja_api(cls._instance)
 
         print('Instantiated setup config.\n')
 
@@ -105,13 +106,14 @@ class config:
 
     def _get_aeo_data(cls):
 
-        config.aeo_cdm = pd.read_excel(config.input_files + 'AEO2023_Reference_case_CDM_technolgy_menu_ktekx.xlsx',
-                                             sheet_name='ktek', skiprows=68, index_col=False).iloc[1:,0:27]
+        config.aeo_cdm = pd.read_excel(config.input_files + 'ktekx.xlsx', sheet_name='ktek', skiprows=68, index_col=False).iloc[1:,0:27]
         
         # Rename integer indexing to readable values to improve code readability and minimise bugs
         cdm_idx = pd.read_csv(config.input_files + 'aeo_cdm_indexing.csv', index_col=0)
         for col in config.aeo_cdm.columns:
             if col in cdm_idx.columns: config.aeo_cdm[col] = config.aeo_cdm[col].map(lambda n: cdm_idx.loc[n, col])
+
+        config.aeo_cdm['techname'] = config.aeo_cdm['techname'].str.lower()
         
 
     
@@ -129,7 +131,7 @@ class config:
         df_proj['VALUE'] *= 1000
         df_proj = df_proj.loc[
             (df_proj['Projection scenario'] == 'Projection scenario M1: medium-growth') & 
-            (df_proj['Sex'] == 'Both sexes') &
+            (df_proj['Gender'] == 'Total - gender') &
             (df_proj['Age group'] == 'All ages')]
 
         # For each region, take historical first, then provincial, then index to Canadian when that runs out
@@ -173,20 +175,15 @@ class config:
             print(f"Downloading {file}...")
 
             # Filter and rename columns
-            df_gdp = df_gdp.loc[(df_gdp['Variable'] == 'Real Gross Domestic Product ($2012 Millions)') & (df_gdp['Scenario'] == 'Evolving Policies')]
-            df_gdp = df_gdp[['Year','Region','Value']].rename({"Year": "year", "Region": "region", "Value": "gdp"}, axis='columns')
+            df_gdp = df_gdp.loc[(df_gdp['Variable'] == 'Real Gross Domestic Product ($2012 Millions)') & (df_gdp['Scenario'] == 'Global Net-zero')]
+            df_gdp = df_gdp[['Year','Value']].rename({"Year": "year", "Value": "gdp"}, axis='columns').set_index('year')
         
             df_gdp.to_csv(config.cache_dir + file)
             print(f"Cached {file} locally.")
 
         # Index GDP to base year GDP by region
-        df_gdp.set_index(['region','year'], inplace=True)
-        df_gdp['gdp'] = df_gdp.index.map(lambda ry: df_gdp.loc[ry, 'gdp'] / df_gdp.loc[(ry[0], config.params['base_year']), 'gdp'])
-        df_gdp = df_gdp.reset_index()
-
-        # Create a dictionary of GDP indices
-        for region, row in config.regions.iterrows():
-            config.gdp_index[region] = df_gdp.loc[df_gdp['region'].str.lower() == row['description']].set_index('year')['gdp']
+        df_gdp = df_gdp / df_gdp.loc[config.params['base_year']]
+        config.gdp_index = df_gdp
 
         
 
@@ -236,7 +233,15 @@ class config:
 
             print(f"Request for {table} from Statcan failed. Status: {response['status']}")
             return None
-        
+    
+
+
+    def _get_rninja_api(cls):
+
+        with open('input_files/rninja_api_token.txt') as token_file:
+            token = token_file.read()
+        config.rninja_api = token
+
 
 
 # Instantiate on import

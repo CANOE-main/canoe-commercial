@@ -47,7 +47,11 @@ def aggregate_region(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
         # AEO data
         aeo_data = config.aeo_cdm.loc[config.aeo_cdm['techname'] == tech_config['aeo_tech']]
-        if type(aeo_data) is pd.DataFrame: aeo_data = aeo_data.iloc[0] # if multiple rows, just take first
+        if type(aeo_data) is pd.DataFrame:
+            try: aeo_data = aeo_data.iloc[0] # if multiple rows, just take first
+            except Exception as e:
+                print(f"Failed. Could not find AEO data for {tech_config['aeo_tech']}.")
+                raise e
 
 
         ## Technologies

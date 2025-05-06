@@ -106,7 +106,11 @@ def get_comstock_table(region: str, building: str) -> pd.DataFrame:
     
     # Otherwise download from Comstock
     print(f"Downloading {file}...")
-    df = pd.read_csv(url, index_col='timestamp')
+    try:
+        df = pd.read_csv(url, index_col='timestamp')
+    except Exception as e:
+        print(f"Failed to download comstock table from url\n{url}")
+        raise e
 
     # Handle timezone change and rearrange so hour 0 is 2018-01-01 00:00
     df = df.iloc[np.arange(-1, len(df)-1)] # starts at 01:00 and ends on 00:00 so roll to 00:00 start

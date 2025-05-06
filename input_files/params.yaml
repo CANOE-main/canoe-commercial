@@ -4,7 +4,6 @@ period_step: 5 # Number of years between model periods
 
 # Future model planning periods
 model_periods:
-  - 2021
   - 2025
   - 2030
   - 2035
@@ -13,7 +12,7 @@ model_periods:
   - 2050
 
 weather_year: 2018 # For normalised timeseries data only
-base_year: 2020 # Default year to pull data from
+base_year: 2022 # Default year to pull data from
 timezone: 'EST' # Final synchronised timezone for all timeseries data
 
 global_discount_rate: 0.05
@@ -26,8 +25,8 @@ inflation_index: 'gdp_deflator' # gdp_deflator, general_cpi, energy_and_petroleu
 # Other demand electrification factor
 # Reduces consumption of all fuels other than electricity by this fraction, and replaces them with electricity by final period
 # Canada Energy Futures puts this at around 0.65 from 2020 -> 2050
-other_electrification_factor: 0.65
-oef_note: "Assumed that 65% of non-electric fuel consumption is 1:1 switched for electricity by 2050, changing linearly (CER, 2023)"
+other_electrification_factor: 0.62
+oef_note: "Assumed that 62% of non-electric fuel consumption is 1:1 switched for electricity by 2050, changing linearly (CER, 2023)"
 oef_reference: "CER. (2023). Canadas Energy Future Data Appendices [dataset]. https://doi.org/10.35002/ZJR8-8X75"
 
 # NOT CURRENTLY IN USE - just omitting minACF instead
@@ -60,8 +59,8 @@ show_plots: true
 include_dsd: true # Aggregating DSDs is slow
 include_imports: true # Aggregates dummy import technologies for fuels
 include_emissions: false
-include_furnace_fans: true # Whether to include electricity consumption of fans in space heating
-clone_to_xlsx: true
+include_furnace_fans: false # Whether to include electricity consumption of fans in space heating
+clone_to_xlsx: false
 
 nrcan_url: "https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/data_e/downloads/comprehensive/Excel/<y>/com_<r>_e_<t>.xls"
 nrcan_reference: 'Natural Resources Canada, (2020). Comprehensive Energy Use Database. https://oee.nrcan.gc.ca/corporate/statistics/neud/dpa/menus/trends/comprehensive_tables/list.cfm'
@@ -73,16 +72,16 @@ aeo_installed_year: 2012 # Year of installed base data
 aeo_currency_year: 2022
 aeo_currency: 'USD'
 
-pop_reference: "Statistics Canada, (2022, August 22). Projected population, by projection scenario, age and sex, as of July 1. https://www150.statcan.gc.ca/t1/tbl1/en/cv.action?pid=1710005701"
-pop_data_year: 2022
+pop_reference: "Statistics Canada, (2025, January 21). Projected population, by projection scenario, age and gender, as of July 1. https://www150.statcan.gc.ca/t1/tbl1/en/cv.action?pid=1710005701"
+pop_data_year: 2025
 
-gdp_url: 'https://www.cer-rec.gc.ca/open/energy/energyfutures2021/macro-indicators-2021.csv'
-gdp_reference: 'CER (2021). Canadas Energy Future 2021: Energy Supply and Demand Projections to 2050 - macro-indicators-2021 - Open Government Portal. Retrieved 10 April 2024, from https://open.canada.ca/data/en/dataset/5a6abd9d-d343-41ef-a525-7a1efb686300/resource/ac214892-e9d1-46c1-a6f9-c2130c5e9b51'
-gdp_data_year: 2021
+gdp_url: 'https://www.cer-rec.gc.ca/open/energy/energyfutures2023/macro-indicators-2023.csv'
+gdp_reference: 'CER (2023). Canadas Energy Future 2023: Energy Supply and Demand Projections to 2050 - macro-indicators-2023. https://open.canada.ca/data/en/dataset/5a6abd9d-d343-41ef-a525-7a1efb686300/resource/ac214892-e9d1-46c1-a6f9-c2130c5e9b51'
+gdp_data_year: 2023
 
-epa_reference: "US EPA. (2023, March). GHG Emission Factors Hub [Overviews and Factsheets]. https://www.epa.gov/climateleadership/ghg-emission-factors-hub"
-epa_year: 2024 # If updating, check if GWP factors have changed and update below
-epa_url: 'https://www.epa.gov/system/files/documents/2024-02/ghg-emission-factors-hub-2024.xlsx'
+epa_reference: "US EPA. (2025, January). GHG Emission Factors Hub [Overviews and Factsheets]. https://www.epa.gov/climateleadership/ghg-emission-factors-hub"
+epa_year: 2025 # If updating, check if GWP factors have changed and update below
+epa_url: 'https://www.epa.gov/system/files/other-files/2025-01/ghg-emission-factors-hub-2025.xlsx'
 emission_commodity: 'CO2eq'
 emission_activity_units: 'ktCO2eq/PJ'
 
@@ -101,7 +100,7 @@ conversion_factors:
     'aeo': 0.108198 # $/(kBtu/h) to M$/(PJ/y)
 
 comstock:
-  url: 'https://oedi-data-lake.s3.amazonaws.com/nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2024/comstock_amy2018_release_1/timeseries_aggregates/by_state/upgrade=32/state=<su>/up32-<sl>-<b>.csv'
+  url: 'https://oedi-data-lake.s3.amazonaws.com/nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2024/comstock_amy2018_release_2/timeseries_aggregates/by_state/upgrade%3D39/state%3D<su>/up39-<sl>-<b>.csv'
   building_types:
     - 'fullservicerestaurant'
     - 'hospital'
@@ -118,12 +117,11 @@ comstock:
     - 'smalloffice'
     - 'warehouse'
   data_year: 2024
-  reference: 'NREL. (2024, March). ComStock-NREL (amy2018, v1.1, upgrade 32). https://data.openei.org/s3_viewer?bucket=oedi-data-lake&prefix=nrel-pds-building-stock%2Fend-use-load-profiles-for-us-building-stock%2F2024%2Fcomstock_amy2018_release_1%2Ftimeseries_aggregates%2Fby_state%2Fupgrade%253D32'
+  reference: 'NREL. (2024). ComStock-NREL (amy2018, v2, upgrade 39). https://data.openei.org/s3_viewer?bucket=oedi-data-lake'
 
 weather:
   us_temperature_url: https://www.renewables.ninja/country_downloads/US/renewables_ninja_country_US_temperature_merra-2_pop-wtd.csv
   us_humidity_url: https://www.renewables.ninja/country_downloads/US/renewables_ninja_country_US_humidity_merra-2_pop-wtd.csv
   ca_temperature_url: https://www.renewables.ninja/country_downloads/CA/renewables_ninja_country_CA_temperature_merra-2_pop-wtd.csv
   ca_humidity_url: https://www.renewables.ninja/country_downloads/CA/renewables_ninja_country_CA_humidity_merra-2_pop-wtd.csv
-  api_token: 'c9907cf9e649bff44ca013c6493d5aed6b6c3170' # !!! TODO before publishing, make this a txt file
   reference: 'Staffell et al. (2023) https://doi.org/10.1038/s41560-023-01341-5 https://www.renewables.ninja/'
