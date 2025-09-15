@@ -35,13 +35,11 @@ def aggregate():
         print(f"Aggregated {region}.\n")
 
     if config.params['include_emissions']: aggregate_emissions()
-    if config.params['include_imports']: aggregate_imports()
+    # if config.params['include_imports']: aggregate_imports() # No longer supported
 
     post_process()
 
     
-
-
 
 # For non-regional aggregation
 def pre_process():
