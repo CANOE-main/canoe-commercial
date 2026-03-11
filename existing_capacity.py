@@ -239,9 +239,12 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
         for period in config.model_periods:
             
-            dem = ann_dem.loc[utils.data_year(period)].iloc[0]
-            note = (f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
-                    f"indexed to projected provincial gdp growth (CER, {config.params['gdp_data_year']})")
+            yr = utils.data_year(period)
+            dem = ann_dem.loc[yr].iloc[0]
+            note = (
+                f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
+                f"indexed to projected provincial gdp growth by {yr} (CER, {config.params['gdp_data_year']})"
+            )
 
             curs.execute(
                 f"""REPLACE INTO
@@ -549,8 +552,13 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     ref = config.refs.add('nrcan_gdp', f"{nrcan_ref}; {config.params['gdp_reference']}")
     for period in config.model_periods:
         
-        dem = ann_dem.loc[utils.data_year(period)].iloc[0]
-        note = f"Annual secondary energy consumption summed over all fuels minus space heating and cooling (NRCan, {base_year})"
+        yr = utils.data_year(period)
+        dem = ann_dem.loc[yr].iloc[0]
+        note = (
+            "Annual secondary energy consumption summed over all "
+            f"fuels minus space heating and cooling (NRCan, {base_year}) "
+            f"indexed to projected provincial gdp growth by {yr} (CER, {config.params['gdp_data_year']})"
+        )
 
         curs.execute(
             f"""REPLACE INTO
