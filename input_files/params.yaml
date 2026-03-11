@@ -9,14 +9,13 @@ model_periods:
   - 2035
   - 2040
   - 2045
-  - 2050
 
 weather_year: 2018 # For normalised timeseries data only
 base_year: 2022 # Default year to pull data from
 timezone: 'EST' # Final synchronised timezone for all timeseries data
 
 data_id_prefix: 'COMHR'
-data_version: '001'
+data_version: '002'
 
 # Currency, data costs are exchanged and inflated in post processing
 final_currency: 'CAD' # Not configured to output currencies other than CAD yet

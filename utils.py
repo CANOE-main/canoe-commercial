@@ -148,7 +148,22 @@ def dq_time(from_year, to_year):
 
 
 
-def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_step']) -> tuple[list, list]:
+def data_year(period_or_vintage: int) -> int:
+    """Returns the year to take data from for a given period/vintage"""
+    if period_or_vintage < config.model_periods[0]:
+        # Existing vintages use same-year data
+        return period_or_vintage
+    else:
+        # New vintages take period-end data
+        return period_or_vintage + config.params['period_step']
+
+
+
+def stock_vintages(
+        lifetime,
+        vint_interval=config.params['period_step'],
+        stock_year=config.model_periods[0],
+    ) -> tuple[list, list]:
 
     vint_last = stock_year - stock_year % vint_interval # first stepped back vint
 
@@ -156,14 +171,25 @@ def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_ste
     vints = list(range(int(vint_last), int(stock_year-lifetime), -int(vint_interval)))
     vints.sort()
 
+    # Just in case stock year is exactly on a vintage, make sure to include it
     if stock_year not in vints: vints.append(stock_year)
+
+    # Has to be an existing vintage but we often use e.g. 2024 to represent end of 2025
+    # because Temoa traps us into start-of-period indexing
+    if vints[-1] >= config.model_periods[0]:
+        vints[-1] = config.model_periods[0] - 1
     
     # Only one vintage so all weight in there
     if len(vints) == 1: weights = [1]
     # Stock year lands on a stepped vintage so divide evenly
     elif stock_year == vint_last: weights = [1 / len(vints)] * len(vints)
     # Stock year is after last stepped vintage so give it a lesser weighting proportional to time interval
-    else: weights = [vint_interval / (vints[-1]-vints[0])] * (len(vints) - 1) + [stock_year%vint_interval / (vints[-1]-vints[0])]
+    else: weights = [vint_interval / (vints[-1]-vints[0]+vint_interval)] * (len(vints) - 1) + [stock_year%vint_interval / (vints[-1]-vints[0]+vint_interval)]
+
+    if abs(sum(weights) - 1) > 0.0001:
+        wgt = sum(weights)
+        msg = f"Something went wrong distributing existing capacities. Weights must sum to 1. Got {wgt}"
+        raise RuntimeError(msg)
 
     return vints, weights
 

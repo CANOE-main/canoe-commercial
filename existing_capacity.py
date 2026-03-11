@@ -239,7 +239,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
         for period in config.model_periods:
             
-            dem = ann_dem.loc[period].iloc[0]
+            dem = ann_dem.loc[utils.data_year(period)].iloc[0]
             note = (f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
                     f"indexed to projected provincial gdp growth (CER, {config.params['gdp_data_year']})")
 
@@ -313,7 +313,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         
 
         # Spread existing capacity evenly over existing vintages
-        vints, weights = utils.stock_vintages(base_year, life)
+        vints, weights = utils.stock_vintages(life)
 
         # Only indexed by vintage
         for v in range(len(vints)):
@@ -487,10 +487,12 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
         ## TechInputSplit
         for period in config.model_periods:
 
+            yr = utils.data_year(period)
+
             tis = ti_splits[fuel]
 
             # Linear interpolation towards reducing non-elc fuels by electrification factor
-            lin_f = (period - base_year)/(config.model_periods[-1] - base_year) # 0 -> 1 linear factor over time
+            lin_f = (yr - base_year)/(utils.data_year(config.model_periods[-1]) - base_year)
             if fuel == 'electricity': target = elc_fact + tis * ( 1 - elc_fact ) # elc increases
             else: target = tis * (1 - elc_fact) # all others decrease by elc_fact
 
@@ -547,9 +549,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     ref = config.refs.add('nrcan_gdp', f"{nrcan_ref}; {config.params['gdp_reference']}")
     for period in config.model_periods:
         
-        dem = ann_dem.loc[period].iloc[0]
-        
-        dem = ann_dem.loc[period].iloc[0]
+        dem = ann_dem.loc[utils.data_year(period)].iloc[0]
         note = f"Annual secondary energy consumption summed over all fuels minus space heating and cooling (NRCan, {base_year})"
 
         curs.execute(
