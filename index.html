@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CANOE Commercial Sector Documentation</title>
+<style>
+:root {
+    --bg: #ffffff;
+    --fg: #1a1a2e;
+    --accent: #0f3460;
+    --accent-light: #e8eef6;
+    --border: #d0d7de;
+    --code-bg: #f6f8fa;
+    --link: #0969da;
+    --toc-bg: #f8f9fb;
+    --sidebar-width: 280px;
+    --max-content: 920px;
+    --table-header-bg: #f0f3f6;
+    --table-stripe: #f8f9fb;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--fg);
+    background: var(--bg);
+}
+
+/* ---- Sidebar navigation ---- */
+#sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--sidebar-width);
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--toc-bg);
+    border-right: 1px solid var(--border);
+    padding: 1.2rem 1rem;
+    z-index: 100;
+}
+
+#sidebar h2 {
+    margin: 0 0 0.8rem 0;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+}
+
+#sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#sidebar li {
+    margin: 0.15rem 0;
+}
+
+#sidebar a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    color: var(--fg);
+    text-decoration: none;
+    font-size: 0.85rem;
+    line-height: 1.35;
+    transition: background 0.15s;
+}
+
+#sidebar a:hover, #sidebar a.active {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+#sidebar .toc-section {
+    margin-top: 1.2rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+}
+
+#sidebar .toc-section-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* ---- Main content ---- */
+#content {
+    margin-left: var(--sidebar-width);
+    max-width: var(--max-content);
+    padding: 2rem 2.5rem 4rem 2.5rem;
+}
+
+/* ---- Typography ---- */
+h1 {
+    font-size: 2rem;
+    margin: 2rem 0 0.6rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid var(--accent);
+    color: var(--accent);
+}
+
+h2 {
+    font-size: 1.5rem;
+    margin: 2.4rem 0 0.5rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+}
+
+h3 {
+    font-size: 1.2rem;
+    margin: 1.8rem 0 0.4rem;
+    color: var(--accent);
+}
+
+h4 {
+    font-size: 1.05rem;
+    margin: 1.4rem 0 0.3rem;
+}
+
+p { margin: 0.6rem 0; }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---- Code ---- */
+code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    padding: 0.15em 0.35em;
+    border-radius: 4px;
+}
+
+pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+}
+
+/* ---- Tables ---- */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: 0.92rem;
+}
+
+th, td {
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background: var(--table-header-bg);
+    font-weight: 600;
+}
+
+tr:nth-child(even) td { background: var(--table-stripe); }
+
+/* ---- Lists ---- */
+ul, ol { padding-left: 1.6rem; }
+li { margin: 0.25rem 0; }
+li > ul, li > ol { margin-top: 0.15rem; }
+
+/* ---- Blockquotes (used for notes) ---- */
+blockquote {
+    margin: 1rem 0;
+    padding: 0.8rem 1.2rem;
+    background: var(--accent-light);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+}
+
+blockquote p { margin: 0.2rem 0; }
+
+/* ---- Horizontal rule ---- */
+hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+}
+
+/* ---- Section divider ---- */
+.section-divider {
+    margin: 3rem 0;
+    padding: 1.5rem 0 0;
+    border-top: 3px solid var(--accent);
+}
+
+.section-divider h1 {
+    border-bottom: none;
+    margin-top: 0;
+}
+
+/* ---- Print styles ---- */
+@media print {
+    #sidebar { display: none; }
+    #content { margin-left: 0; max-width: 100%; }
+    h1, h2, h3 { break-after: avoid; }
+    table { break-inside: avoid; }
+    pre { white-space: pre-wrap; word-wrap: break-word; }
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+    #sidebar { display: none; }
+    #content { margin-left: 0; padding: 1.5rem; }
+}
+</style>
+</head>
+<body>
+
+<nav id="sidebar">
+  <h2>CANOE Documentation</h2>
+  <div class="toc-section">
+    <div class="toc-section-label">Data Processing</div>
+    <ul>
+      <li><a href="#canoe-commercial-sector-data-processing-documentation">CANOE Commercial Sector &mdash; Data Processing</a></li>
+      <li><a href="#table-of-contents">Table of Contents</a></li>
+      <li><a href="#1-overview">1. Overview</a></li>
+      <li><a href="#2-pipeline-architecture">2. Pipeline Architecture</a></li>
+      <li><a href="#3-configuration-and-setup">3. Configuration and Setup</a></li>
+      <li><a href="#4-pre-processing">4. Pre-Processing</a></li>
+      <li><a href="#5-existing-capacity-and-demand">5. Existing Capacity &amp; Demand</a></li>
+      <li><a href="#6-new-capacity">6. New Capacity</a></li>
+      <li><a href="#7-hourly-demand-profiles-comstock">7. Hourly Demand Profiles</a></li>
+      <li><a href="#8-emissions">8. Emissions</a></li>
+      <li><a href="#9-post-processing">9. Post-Processing</a></li>
+      <li><a href="#10-known-assumptions-and-limitations">10. Assumptions &amp; Limitations</a></li>
+    </ul>
+  </div>
+  <div class="toc-section">
+    <div class="toc-section-label">Data Sources</div>
+    <ul>
+      <li><a href="#canoe-commercial-sector-data-sources-catalog">CANOE Commercial Sector &mdash; Data Sources</a></li>
+      <li><a href="#1-data-source-summary">1. Data Source Summary</a></li>
+      <li><a href="#2-nrcan-comprehensive-energy-use-database-ceud">2. NRCan CEUD</a></li>
+      <li><a href="#3-us-eia-annual-energy-outlook-aeo-commercial-demand-module">3. EIA AEO CDM</a></li>
+      <li><a href="#4-nrel-comstock">4. NREL ComStock</a></li>
+      <li><a href="#5-statistics-canada">5. Statistics Canada</a></li>
+      <li><a href="#6-cer-canadas-energy-future">6. CER Macro Indicators</a></li>
+      <li><a href="#7-us-epa-ghg-emission-factors-hub">7. US EPA GHG</a></li>
+      <li><a href="#8-renewables-ninja-weather-mapping">8. Renewables Ninja</a></li>
+      <li><a href="#9-update-procedures-checklist">9. Update Procedures</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="content">
+
+<h1 id="canoe-commercial-sector-data-processing-documentation">CANOE Commercial Sector &mdash; Data Processing Documentation</h1>
+<p><em>Comprehensive documentation of the data pipeline that converts upstream data sources into a Temoa-ready SQLite database for the Canadian Open Energy (CANOE) model's commercial buildings sector.</em></p>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-overview">Overview</a></li>
+<li><a href="#2-pipeline-architecture">Pipeline Architecture</a></li>
+<li><a href="#3-configuration-and-setup">Configuration and Setup</a></li>
+<li><a href="#4-pre-processing">Pre-Processing</a></li>
+<li><a href="#5-existing-capacity-and-demand">Existing Capacity and Demand</a></li>
+<li><a href="#6-new-capacity">New Capacity</a></li>
+<li><a href="#7-hourly-demand-profiles-comstock">Hourly Demand Profiles (ComStock)</a></li>
+<li><a href="#8-emissions">Emissions</a></li>
+<li><a href="#9-post-processing">Post-Processing</a></li>
+<li><a href="#10-known-assumptions-and-limitations">Known Assumptions and Limitations</a></li>
+</ol>
+<hr>
+
+<h2 id="1-overview">1. Overview</h2>
+<h3 id="purpose">Purpose</h3>
+<p>The CANOE commercial sector aggregation tool automatically constructs a Temoa-compatible SQLite database representing the Canadian commercial buildings sector. It dynamically downloads and processes data from multiple sources&mdash;including Natural Resources Canada (NRCan), U.S. EIA Annual Energy Outlook (AEO), NREL ComStock, and Statistics Canada&mdash;to build a comprehensive set of end-use demands, existing technology stocks, and new technology options.</p>
+<h3 id="what-the-tool-produces">What the Tool Produces</h3>
+<ul>
+<li>A <strong>Temoa-schema SQLite database</strong> containing all technology, cost, capacity, demand, emissions, and time-series data for the commercial sector.</li>
+<li>Optionally, an <strong>Excel workbook</strong> clone of the database for inspection and review.</li>
+<li><strong>Diagnostic plots</strong> showing demand specific distributions (DSDs) and time-of-week variations.</li>
+</ul>
+<h3 id="scope">Scope</h3>
+<p>The model covers:</p>
+<ul>
+<li><strong>Regions</strong>: Canadian provinces.</li>
+<li><strong>End-Uses</strong>: Space heating, space cooling, and an aggregated "other" demand (lighting, equipment, water heating, etc.).</li>
+<li><strong>Technologies</strong>: Existing and new HVAC systems (furnaces, boilers, heat pumps, chillers, etc.) and a dummy technology to satisfy "other" demands.</li>
+<li><strong>Time resolution</strong>: Hourly representation mapped to seasonal and time-of-day representative slices.</li>
+<li><strong>Planning horizon</strong>: Configurable five-year periods (default: 2025&ndash;2050).</li>
+</ul>
+<hr>
+
+<h2 id="2-pipeline-architecture">2. Pipeline Architecture</h2>
+<p>The aggregation runs in a fixed sequence, orchestrated by <code>commercial_sector.py</code> and <code>all_subsectors.py</code>:</p>
+<div class="codehilite"><pre><span></span><code>1. setup.py             &rarr; Load configuration, download macro/demographic data, build API bridges
+2. instantiate_database &rarr; Create or wipe SQLite database using the Temoa schema
+3. all_subsectors.py    &rarr; Orchestrator for all subsector components
+   a. pre_process()     &rarr; Write time periods, regions, temporal structures, and commodities
+   b. [Per Region Loop]
+      i.   comstock_dsd.py      &rarr; Download and map hourly demand profiles from NREL ComStock
+      ii.  existing_capacity.py &rarr; Calculate annual demand, allocate existing stock, and write DSDs
+      iii. new_capacity.py      &rarr; Write techno-economic parameters for new technology options
+   c. aggregate_emissions() &rarr; Compute direct emissions for energy combustion
+   d. post_process()    &rarr; Clean up vintages, attach references, and validate data IDs
+</code></pre></div>
+<hr>
+
+<h2 id="3-configuration-and-setup">3. Configuration and Setup</h2>
+<h3 id="31-configuration-file-paramsyaml">3.1 Configuration File (<code>params.yaml</code>)</h3>
+<p>The primary configuration file dictates macro variables, API links, and processing rules:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>period_step</code></td>
+<td style="text-align: left;">5</td>
+<td style="text-align: left;">Years between model periods</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>model_periods</code></td>
+<td style="text-align: left;">[2025, 2030, ..., 2050]</td>
+<td style="text-align: left;">Planning horizon periods</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>base_year</code></td>
+<td style="text-align: left;">2022</td>
+<td style="text-align: left;">Default year for pulling non-timeseries data (NRCan context)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>weather_year</code></td>
+<td style="text-align: left;">2018</td>
+<td style="text-align: left;">Year matching the ComStock hourly profiles</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>other_electrification_factor</code></td>
+<td style="text-align: left;">0.62</td>
+<td style="text-align: left;">Target fraction of non-electric fuel shifted to electricity for "other" enduses by 2050</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dsd_tolerance</code></td>
+<td style="text-align: left;">0.02</td>
+<td style="text-align: left;">Minimum threshold for hourly demand as fraction of mean</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>sec_tolerance</code></td>
+<td style="text-align: left;">0.05</td>
+<td style="text-align: left;">Minimum threshold for secondary energy consumption</td>
+</tr>
+</tbody>
+</table>
+<h3 id="32-technology-and-definitions-csvs">3.2 Technology and Definitions CSVs</h3>
+<ul>
+<li><strong><code>existing_technologies.csv</code> / <code>new_technologies.csv</code></strong>: Define existing and new commercial tech, linking them to EIA AEO reference names and their primary fuels.</li>
+<li><strong><code>fuel_commodities.csv</code> / <code>end_use_demands.csv</code></strong>: Map fuel inputs and demand outputs with their Temoa identifiers and physical units.</li>
+<li><strong><code>regions.csv</code></strong>: Maps Canadian provinces to US Census Divisions for proxying AEO data.</li>
+<li><strong><code>time.csv</code></strong>: Configures the translation of 8,760 hours into representative seasons and times-of-day.</li>
+</ul>
+<h3 id="33-data-caching">3.3 Data Caching</h3>
+<p>All remote data (AEO spreadsheets, StatCan zips, ComStock profiles, macro indicators) are downloaded to a local <code>data_cache/</code> directory to speed up subsequent aggregations. <code>force_download: true</code> will bypass the cache.</p>
+<hr>
+
+<h2 id="4-pre-processing">4. Pre-Processing</h2>
+<p>The <code>pre_process()</code> function builds the structural foundation of the model:</p>
+<ul>
+<li><strong>Time</strong>: Writes all specific hours, times-of-day (H01-H24), and season mappings into <code>TimeSegmentFraction</code>, <code>TimeSeason</code>, etc.</li>
+<li><strong>Regions</strong>: Inherits regions defined in <code>regions.csv</code>.</li>
+<li><strong>Commodities</strong>: Defines physical fuel commodities (e.g., electricity, natural gas) and demand services (space heating, space cooling, other).</li>
+</ul>
+<hr>
+
+<h2 id="5-existing-capacity-and-demand">5. Existing Capacity and Demand</h2>
+<p>This constitutes the core analytical engine in <code>existing_capacity.py</code>.</p>
+<h3 id="51-defining-the-existing-stock-equation">5.1 Defining the Existing Stock Equation</h3>
+<p>The model defines the existing commercial building stock mathematically:</p>
+<p><strong>DEM (Output Demand) = SEC (Input Fuel) &times; EFF (Efficiency)</strong></p>
+<p><strong>CAP (Capacity) = DEM / (ACF &times; C2A)</strong></p>
+<h3 id="52-base-year-secondary-energy-consumption-sec">5.2 Base Year Secondary Energy Consumption (SEC)</h3>
+<p>Base year (e.g., 2022) fuel consumption for space heating, space cooling, and other end-uses is downloaded from the <strong>NRCan Comprehensive Energy Use Database (CEUD)</strong>.</p>
+<ul>
+<li><strong>Atlantic Provinces Adjustment</strong>: Because NRCan aggregates the Atlantic provinces, the pipeline pulls auxiliary data from Statistics Canada (Table 25-10-0029) to calculate the province-specific fraction of energy use to accurately disaggregate the Atlantic region.</li>
+</ul>
+<h3 id="53-proxied-efficiencies-and-market-shares">5.3 Proxied Efficiencies and Market Shares</h3>
+<p>Since NRCan does not provide detailed installed-base efficiencies, the tool proxies them from the <strong>U.S. EIA Annual Energy Outlook (AEO) Commercial Demand Module (CDM)</strong>:</p>
+<ul>
+<li>Modellers map Canadian provinces to corresponding US Census Divisions with similar climate/economic factors.</li>
+<li>Installed technological base shares (<code>serv_share</code>) and efficiencies are gathered from AEO's <code>ktekx.xlsx</code> database.</li>
+<li>Weighted average efficiencies are calculated per fuel, per end-use to derive final service DEMAND.</li>
+</ul>
+<h3 id="54-other-end-uses">5.4 "Other" End-Uses</h3>
+<p>All residual energy usage aside from space heating and space cooling is lumped into a generalized "other" end-use. The fuel shares of this "other" demand are allowed to evolve.</p>
+<ul>
+<li>By 2050, it linearly interpolates non-electric fossil fuels down, shifting a portion to electricity based on the user-defined <code>other_electrification_factor</code> (default 0.62 based on CER scenarios).</li>
+</ul>
+<h3 id="55-scaling-future-demand">5.5 Scaling Future Demand</h3>
+<p>Base year service demands are scaled into the future (<code>params.yaml</code> model periods) using <strong>GDP growth projections</strong> derived from the Canada Energy Regulator (CER) Energy Future reports.</p>
+<hr>
+
+<h2 id="6-new-capacity">6. New Capacity</h2>
+<p>For prospective technology adoption, <code>new_capacity.py</code> ingests data entirely from the EIA AEO <code>ktekx.xlsx</code> technology menus.</p>
+<ul>
+<li><strong>Efficiencies</strong>: Proxied exactly from AEO.</li>
+<li><strong>CostInvest / CostFixed</strong>: Sourced from AEO's <code>capcst</code> and <code>maintcst</code> variables. Costs are converted from base US units (e.g., $/(kBtu/h)) to CANOE native metrics (M$/(PJ/y)) using pre-defined conversion factors, and adjusted for currency and inflation into CAD.</li>
+<li><strong>Lifetimes</strong>: Taken directly from the AEO lifespan tables.</li>
+<li><strong>Capacity Factors</strong>: Upper limits (<code>LimitAnnualCapacityFactor</code>) are constrained by the peak-to-mean ratios derived from the hourly ComStock demand distributions.</li>
+</ul>
+<hr>
+
+<h2 id="7-hourly-demand-profiles-comstock">7. Hourly Demand Profiles (ComStock)</h2>
+<p>To capture the intra-annual temporal dynamics necessary for capacity expansion modeling, hourly demand shapes are synthesized via <code>comstock_dsd.py</code>:</p>
+<ul>
+<li><strong>Data Source</strong>: Uses <strong>NREL ComStock</strong> representative commercial buildings dataset (e.g., Hospital, Large Office, Primary School).</li>
+<li><strong>Mapping</strong>: Since ComStock data is primarily US-focused, Canadian provinces pull profiles from an equivalent US State (<code>comstock_map.csv</code>), adjusted through a process of explicit weather mapping (using Renewables Ninja temperature/humidity records).</li>
+<li><strong>Demand Specific Distributions (DSD)</strong>: All ComStock 8,760-hour outputs are summed by end-use and then normalized to sum to 1. This normalized fraction is assigned to <code>DemandSpecificDistribution</code>, dictating when the annual demand (from Section 5.5) physically occurs.</li>
+</ul>
+<hr>
+
+<h2 id="8-emissions">8. Emissions</h2>
+<p>If <code>include_emissions</code> is set to true in <code>params.yaml</code>:</p>
+<ul>
+<li><strong>US EPA GHG Emission Factors Hub</strong> data is integrated to apply CO2, CH4, and N2O factors.</li>
+<li>Factors are scaled into standard Global Warming Potential (GWP) CO2-equivalent metrics and tied to specific generator inputs via the <code>EmissionActivity</code> table.</li>
+</ul>
+<hr>
+
+<h2 id="9-post-processing">9. Post-Processing</h2>
+<p>The final step handles bookkeeping:</p>
+<ul>
+<li>Vintages (historical installation years) used by existing technologies are appended to the <code>TimePeriod</code> table with the flag "e".</li>
+<li>The internal bibliography of citations is flushed to the <code>DataSource</code> table.</li>
+<li>A complete check for missing or unassigned <code>data_id</code> fields ensures traceability for all database entries prior to validation.</li>
+</ul>
+<hr>
+
+<h2 id="10-known-assumptions-and-limitations">10. Known Assumptions and Limitations</h2>
+<ol>
+<li><strong>US Proxies for Canadian Building Stock:</strong> The commercial pipeline relies heavily on the EIA AEO for specific HVAC efficiencies, technology costs, and installed base distributions. Furthermore, NREL ComStock is used for hourly usage profiles. While efforts are made to align similar climates (e.g., US Census Divisions matching Canadian Provinces), systemic differences between US and Canadian commercial building codes, occupancy norms, and construction materials are not explicitly captured.</li>
+<li><strong>Atlantic Aggregation Proxying:</strong> Extracting individual province data from NRCan&rsquo;s aggregated Atlantic region requires using a different Statistics Canada dataset with different survey scopes. This disaggregation is an approximation.</li>
+<li><strong>Fixed Peak-to-Mean Demand Profiles:</strong> The hourly demand profile shapes generated from the base weather year (e.g., 2018) are assumed to remain constant across all future model periods.</li>
+<li><strong>Simplification of "Other" Demands:</strong> Distinct end-uses such as water heating, lighting, and refrigeration are aggressively aggregated into a single "other" commodity, smoothing out individual usage profiles. The electrification transition for these is deterministic (linear interpolation) rather than endogenously optimized.</li>
+</ol>
+<div class="section-divider">
+  <h1 id="canoe-commercial-sector-data-sources-catalog">CANOE Commercial Sector &mdash; Data Sources Catalog</h1>
+</div>
+
+<h2 id="1-data-source-summary">1. Data Source Summary</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Data Type</th>
+<th style="text-align: left;">Primary Source</th>
+<th style="text-align: left;">Granularity</th>
+<th style="text-align: left;">Update Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Existing Demand/Fuel</strong></td>
+<td style="text-align: left;">NRCan CEUD</td>
+<td style="text-align: left;">Regional / Annual</td>
+<td style="text-align: left;">Annual</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Future Demand Scaling</strong></td>
+<td style="text-align: left;">CER Canada's Energy Future</td>
+<td style="text-align: left;">National/Regional GDP</td>
+<td style="text-align: left;">Annual/Biannual</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Tech Shares &amp; Costs</strong></td>
+<td style="text-align: left;">U.S. EIA AEO</td>
+<td style="text-align: left;">US Census Div.</td>
+<td style="text-align: left;">Annual</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Hourly Demand Shapes</strong></td>
+<td style="text-align: left;">NREL ComStock</td>
+<td style="text-align: left;">US State / Hourly</td>
+<td style="text-align: left;">Periodic updates</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Emissions Factors</strong></td>
+<td style="text-align: left;">US EPA GHG Hub</td>
+<td style="text-align: left;">Fuel Type</td>
+<td style="text-align: left;">Annual</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Population Config</strong></td>
+<td style="text-align: left;">Statistics Canada</td>
+<td style="text-align: left;">Provincial / Annual</td>
+<td style="text-align: left;">Annual</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-nrcan-comprehensive-energy-use-database-ceud">2. NRCan Comprehensive Energy Use Database (CEUD)</h2>
+<ul>
+<li><strong>Usage</strong>: Establishes the absolute base year of commercial sector secondary energy consumption for space heating, cooling, and other.</li>
+<li><strong>Update Procedure</strong>: Base year should be advanced. Update <code>base_year</code> in <code>params.yaml</code> and verify the integrity of the downloaded Excel sheets (Table 1, 24, 32 row/column structures).</li>
+</ul>
+<h2 id="3-us-eia-annual-energy-outlook-aeo-commercial-demand-module">3. U.S. EIA Annual Energy Outlook (AEO) Commercial Demand Module</h2>
+<ul>
+<li><strong>Usage</strong>: Provides parameters for efficiency, technological breakdown (market shares), fixed costs, and investment costs for both existing and new technologies.</li>
+<li><strong>Update Procedure</strong>: A new <code>ktekx.xlsx</code> file must be manually downloaded from the AEO NEMS archive and placed in <code>input_files/</code>. Check <code>aeo_cdm_indexing.csv</code> and row indices in Python code if EIA alters the exact matrix dimensions of their output sheets. Update <code>aeo_data_year</code> in config.</li>
+</ul>
+<h2 id="4-nrel-comstock">4. NREL ComStock</h2>
+<ul>
+<li><strong>Usage</strong>: High-resolution hourly energy consumption profiles mapping commercial building archetypes to end-uses.</li>
+<li><strong>Update Procedure</strong>: <code>params.yaml</code> handles dynamic S3 URL paths to the ComStock data lake. Update <code>data_year</code> and the <code>url</code> path if NREL releases newer weather year evaluations.</li>
+</ul>
+<h2 id="5-statistics-canada">5. Statistics Canada</h2>
+<ul>
+<li><strong>Usage</strong>: Historical and projected regional aggregate population metrics; provides distinct regional fuel allocations to disentangle NRCan's blanket "Atlantic" categorizations.</li>
+<li><strong>Update Procedure</strong>: The pipeline pulls dynamically via the StatCan API (Table 17-10-0057 for projections and 25-10-0029 for energy flow). Update references in <code>params.yaml</code> if table indices change.</li>
+</ul>
+<h2 id="6-cer-canadas-energy-future">6. CER Canada's Energy Future</h2>
+<ul>
+<li><strong>Usage</strong>: Macroeconomic GDP forecasts to project space heating, cooling, and auxiliary demands into future model periods.</li>
+<li><strong>Update Procedure</strong>: The URL in <code>params.yaml</code> points to the Open Government Portal. Ensure the <code>gdp_url</code> is updated when a new CEF iteration is released.</li>
+</ul>
+<h2 id="7-us-epa-ghg-emission-factors-hub">7. US EPA GHG Emission Factors Hub</h2>
+<ul>
+<li><strong>Usage</strong>: Emission factors (CO2, CH4, N2O) mapped directly to commercial fuel combustion.</li>
+<li><strong>Update Procedure</strong>: Modify <code>epa_url</code> in <code>params.yaml</code> to point to the latest annual excel release.</li>
+</ul>
+<h2 id="8-renewables-ninja-weather-mapping">8. Renewables Ninja (Weather Mapping)</h2>
+<ul>
+<li><strong>Usage</strong>: Weather data points to map specific ComStock US state proxy files realistically onto Canadian provincial climates.</li>
+<li><strong>Update Procedure</strong>: Handled via dynamic API request using cached tokens. Unless modifying the base <code>weather_year</code>, no direct data updates are required.</li>
+</ul>
+<h2 id="9-update-procedures-checklist">9. Update Procedures (Checklist)</h2>
+<p>As defined in <code>annual_update_checklist.txt</code>:</p>
+<ol>
+<li><strong>Latest AEO NEMS data</strong>: Download and replace <code>ktekx.xlsx</code> in <code>input_files</code>. Update row/column indices in code and names in <code>new_technologies.csv</code>.</li>
+<li><strong>Update datasets</strong>: Modify data years and reference strings in <code>params.yaml</code>.</li>
+<li><strong>Clear Cache</strong>: Empty the <code>data_cache/</code> directory to force the pipeline to pull freshly aligned data.</li>
+<li><strong>Execute &amp; Test</strong>: Run <code>commercial_sector.py</code> and resolve any CSV layout or API structural changes from upstream data providers. Ensure the output aligns with the new Temoa SQLite schema.</li>
+</ol>
+</main>
+
+</body>
+</html>
