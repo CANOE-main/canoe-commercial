@@ -2,6 +2,8 @@
 
 This repository contains the commercial sector model for CANOE (Canadian Opportunities for Emissions Reduction). It aggregates data primarily from the NRCan Comprehensive Energy Use Database and Annual Energy Outlook technology assumptions to build a modular commercial sector database.
 
+Access comprehensive document: [Here](https://canoe-main.github.io/canoe-commercial/)
+
 ## Overview
 
 The model builds a database representing the commercial buildings sector. It supports:
