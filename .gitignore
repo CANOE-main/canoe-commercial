@@ -3,3 +3,5 @@ data_cache/
 deprecated/
 commercial.sqlite
 commercial*.xlsx
+output_plots/*
+*settings.json
