@@ -263,7 +263,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                 )
                 for row in data
             ]
-            sql, rows = DemandSpecificDistribution.bulk_replace_into_sql(dsd_rows)
+            sql, rows = DemandSpecificDistribution.bulk_replace_into_sql(dsd_rows, include_nulls=True)
             conn.executemany(sql, rows)
 
 
@@ -499,7 +499,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                 [
                     LimitAnnualCapacityFactor(
                         region=region,
-                        period=period,
+                        vintage=period,
                         tech=tech,
                         output_comm=eu_config['comm'],
                         operator='le',
@@ -513,7 +513,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                         dq_time=3,
                         data_id=utils.data_id(region),
                     )
-                ]
+                ], include_nulls=True
             )
             conn.executemany(sql, rows)
             
@@ -719,7 +719,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
             )
             for row in data
         ]
-        sql, rows = DemandSpecificDistribution.bulk_replace_into_sql(dsd_rows)
+        sql, rows = DemandSpecificDistribution.bulk_replace_into_sql(dsd_rows, include_nulls=True)
         conn.executemany(sql, rows)
 
 

@@ -220,7 +220,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                 [
                     LimitAnnualCapacityFactor(
                         region=region,
-                        period=period,
+                        vintage=period,
                         tech=tech,
                         output_comm=eu_config['comm'],
                         operator='le',
