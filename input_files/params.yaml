@@ -46,7 +46,8 @@ dsd_tolerance: 0.02
 # secondary energy consumption that's less than this fraction of total energy consumption in any region.
 sec_tolerance: 0.05
 
-sqlite_schema: "canoe_dataset_schema.sql"
+# sqlite_schema: "canoe_dataset_schema.sql"
+canoe_schema: "3.2"
 sqlite_database: "commercial.sqlite"
 excel_template: "Template spreadsheet (make a copy).xlsx"
 excel_output: "commercial.xlsx"

@@ -21,6 +21,7 @@ dependencies = [
     "openpyxl",
     "scipy",
     "xlrd",
+    "pytz",
     "canoe_schema @ git+ssh://git@github.com/CANOE-main/canoe-schema.git",
 ]
 

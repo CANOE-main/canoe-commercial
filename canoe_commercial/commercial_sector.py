@@ -4,12 +4,14 @@ Written by Ian David Elder for the CANOE model
 """
 
 import os
+import sqlite3
+from matplotlib import pyplot as pp
+
+
 import canoe_commercial.utils as utils
 import canoe_commercial.all_subsectors as all_subsectors
 import canoe_commercial.setup as setup
-import sqlite3
 from canoe_commercial.setup import config
-from matplotlib import pyplot as pp
 
 
 
