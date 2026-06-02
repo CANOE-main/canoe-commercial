@@ -6,6 +6,7 @@ Written by Ian David Elder for the CANOE model
 import os
 import sqlite3
 import pandas as pd
+from itertools import product
 from canoe_schema.v3_2.models import (
     Commodity,
     DataSet,
@@ -89,7 +90,7 @@ def pre_process():
             sequence=i,
             season=season
         )
-        for period, (i, season) in zip(config.model_periods, enumerate(config.time['season'].unique()))
+        for period, (i, season) in product(config.model_periods, enumerate(config.time['season'].unique()))
     ]
     
     sql, rows = TimeSeason.bulk_replace_into_sql(time_season)
