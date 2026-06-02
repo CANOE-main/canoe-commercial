@@ -95,7 +95,7 @@ class config:
     cache_dir = _this_dir + "data_cache/"
 
     refs: bibliography = bibliography()
-    data_ids = set()
+    data_ids = set('COMHR001', 'COMHR001')
 
     if not os.path.exists(cache_dir): os.mkdir(cache_dir)
 

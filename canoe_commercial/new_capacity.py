@@ -8,6 +8,15 @@ import sqlite3
 import canoe_commercial.utils as utils
 import pandas as pd
 from canoe_commercial.currency_conversion import conv_curr
+from canoe_schema.v3_2.models import (
+    CapacityToActivity,
+    CostFixed,
+    CostInvest,
+    Efficiency,
+    LifetimeTech,
+    LimitAnnualCapacityFactor,
+    Technology,
+)
 
 
 
@@ -54,34 +63,60 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
 
 
         ## Technologies
-        curs.execute(
-            f"""REPLACE INTO
-            Technology(tech, flag, sector, annual, description, data_id)
-            VALUES('{tech}', 'p', 'commercial', 1, '{end_use} {tech_config['description']}', '{utils.data_id()}')"""
+        sql, rows = Technology.bulk_replace_into_sql(
+            [
+                Technology(
+                    tech=tech,
+                    flag='p',
+                    sector='commercial',
+                    annual=1,
+                    description=f"{end_use} {tech_config['description']}",
+                    data_id=utils.data_id(),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
 
 
         ## LifetimeTech
         life = round(aeo_data['life'])
         note = f"Rounded life from AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
         ref = config.refs.get('aeo')
-        curs.execute(
-            f"""REPLACE INTO
-            LifetimeTech(region, tech, lifetime,
-            notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id) 
-            VALUES('{region}', '{tech}', {life},
-            '{note}', '{ref.id}', 1, 2, 1, 2, 3, '{utils.data_id(region)}')"""
+        sql, rows = LifetimeTech.bulk_replace_into_sql(
+            [
+                LifetimeTech(
+                    region=region,
+                    tech=tech,
+                    lifetime=life,
+                    notes=note,
+                    data_source=ref.id,
+                    dq_cred=1,
+                    dq_geog=2,
+                    dq_struc=1,
+                    dq_tech=2,
+                    dq_time=3,
+                    data_id=utils.data_id(region),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
         
 
         ## CapacityToActivity
         c2a = 1 # Capacity is in PJ/y and activity is in PJ
         note = "Capacity is in PJ/y and activity is in PJ so 1"
-        curs.execute(
-            f"""REPLACE INTO
-            CapacityToActivity(region, tech, c2a, notes, data_id)
-            VALUES('{region}', '{tech}', {c2a}, '{note}', '{utils.data_id(region)}')"""
+        sql, rows = CapacityToActivity.bulk_replace_into_sql(
+            [
+                CapacityToActivity(
+                    region=region,
+                    tech=tech,
+                    c2a=c2a,
+                    notes=note,
+                    data_id=utils.data_id(region),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
 
 
         # Only indexed by vintage
@@ -91,13 +126,27 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
             eff = aeo_data['efficiency']
             note = f"From AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
             ref = config.refs.get('aeo')
-            curs.execute(
-                f"""REPLACE INTO
-                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', '{fuel_config['comm']}', '{tech}', {vint}, '{eu_config['comm']}', {eff},
-                '{note}', '{ref.id}', 1, 2, 3, 2, 2, '{utils.data_id(region)}')"""
+            sql, rows = Efficiency.bulk_replace_into_sql(
+                [
+                    Efficiency(
+                        region=region,
+                        input_comm=fuel_config['comm'],
+                        tech=tech,
+                        vintage=vint,
+                        output_comm=eu_config['comm'],
+                        efficiency=eff,
+                        notes=note,
+                        data_source=ref.id,
+                        dq_cred=1,
+                        dq_geog=2,
+                        dq_struc=3,
+                        dq_tech=2,
+                        dq_time=2,
+                        data_id=utils.data_id(region),
+                    )
+                ]
             )
+            conn.executemany(sql, rows)
             
 
             ## CostInvest
@@ -105,13 +154,26 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
             cost_invest = conv_curr(cost_invest)
             note = f"Capcst from AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
             ref = config.refs.get('aeo')
-            curs.execute(
-                f"""REPLACE INTO
-                CostInvest(region, tech, vintage, cost, units,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', '{tech}', {vint}, {cost_invest}, 'M$/PJ/y',
-                '{note}', '{ref.id}', 1, 2, 1, 2, 2, '{utils.data_id(region)}')"""
+            sql, rows = CostInvest.bulk_replace_into_sql(
+                [
+                    CostInvest(
+                        region=region,
+                        tech=tech,
+                        vintage=vint,
+                        cost=cost_invest,
+                        units='M$/PJ/y',
+                        notes=note,
+                        data_source=ref.id,
+                        dq_cred=1,
+                        dq_geog=2,
+                        dq_struc=1,
+                        dq_tech=2,
+                        dq_time=2,
+                        data_id=utils.data_id(region),
+                    )
+                ]
             )
+            conn.executemany(sql, rows)
             
 
             # Indexed by period and vintage
@@ -124,13 +186,27 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                 cost_fixed = conv_curr(cost_fixed)
                 note = f"Maintcst from AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
                 ref = config.refs.get('aeo')
-                curs.execute(
-                    f"""REPLACE INTO
-                    CostFixed(region, period, tech, vintage, cost, units,
-                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                    VALUES('{region}', {period}, '{tech}', {vint}, {cost_fixed}, 'M$/PJ',
-                    '{note}', '{ref.id}', 1, 2, 1, 2, 2, '{utils.data_id(region)}')"""
+                sql, rows = CostFixed.bulk_replace_into_sql(
+                    [
+                        CostFixed(
+                            region=region,
+                            period=period,
+                            tech=tech,
+                            vintage=vint,
+                            cost=cost_fixed,
+                            units='M$/PJ',
+                            notes=note,
+                            data_source=ref.id,
+                            dq_cred=1,
+                            dq_geog=2,
+                            dq_struc=1,
+                            dq_tech=2,
+                            dq_time=2,
+                            data_id=utils.data_id(region),
+                        )
+                    ]
                 )
+                conn.executemany(sql, rows)
 
 
         ## AnnualCapacityFactor
@@ -140,13 +216,27 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
             
         for period in config.model_periods:
                 
-            curs.execute(
-                f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{tech}', '{eu_config['comm']}', 'le', {acf},
-                '{note}', '{ref.id}', 1, 2, 5, 2, 3, '{utils.data_id(region)}')"""
+            sql, rows = LimitAnnualCapacityFactor.bulk_replace_into_sql(
+                [
+                    LimitAnnualCapacityFactor(
+                        region=region,
+                        period=period,
+                        tech=tech,
+                        output_comm=eu_config['comm'],
+                        operator='le',
+                        factor=acf,
+                        notes=note,
+                        data_source=ref.id,
+                        dq_cred=1,
+                        dq_geog=2,
+                        dq_struc=5,
+                        dq_tech=2,
+                        dq_time=3,
+                        data_id=utils.data_id(region),
+                    )
+                ]
             )
+            conn.executemany(sql, rows)
             
     
     conn.commit()
