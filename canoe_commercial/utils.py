@@ -12,7 +12,7 @@ import datetime
 import pandas as pd
 import requests
 import xmltodict
-from setup import config
+from canoe_commercial.setup import config
 import urllib.request
 import zipfile
 import pickle

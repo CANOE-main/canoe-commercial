@@ -4,12 +4,12 @@ Written by Ian David Elder for the CANOE model
 """
 
 from matplotlib import pyplot as pp
-from setup import config
+from canoe_commercial.setup import config
 import pandas as pd
 import numpy as np
-import weather_mapping
+import canoe_commercial.weather_mapping as weather_mapping
 import os
-import utils
+import canoe_commercial.utils as utils
 
 comstock_map = pd.read_csv(config.input_files + 'comstock_map.csv', index_col=0) # load here so we dont do it once for every region
 

@@ -3,14 +3,14 @@ Aggregates residential non-subsector-specific data
 Written by Ian David Elder for the CANOE model
 """
 
-from setup import config
-import utils
+from canoe_commercial.setup import config
+import canoe_commercial.utils as utils
 import pandas as pd
 import sqlite3
 import os
-import comstock_dsd
-import existing_capacity
-import new_capacity
+import canoe_commercial.comstock_dsd as comstock_dsd
+import canoe_commercial.existing_capacity as existing_capacity
+import canoe_commercial.new_capacity as new_capacity
 
 # Shortens lines a bit
 fuel_commodities = config.fuel_commodities

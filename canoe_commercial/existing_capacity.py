@@ -28,11 +28,11 @@ Procedure:
 Written by Ian David Elder for the CANOE model
 """
 
-from setup import config
+from canoe_commercial.setup import config
 import sqlite3
-import utils
+import canoe_commercial.utils as utils
 import pandas as pd
-from currency_conversion import conv_curr
+from canoe_commercial.currency_conversion import conv_curr
 
 base_year = config.params['base_year']
 aeo_ref = config.params['aeo_reference']
