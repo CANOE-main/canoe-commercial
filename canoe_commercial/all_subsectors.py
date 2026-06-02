@@ -3,14 +3,16 @@ Aggregates residential non-subsector-specific data
 Written by Ian David Elder for the CANOE model
 """
 
-from canoe_commercial.setup import config
-import canoe_commercial.utils as utils
-import pandas as pd
-import sqlite3
 import os
+import sqlite3
+import pandas as pd
+from canoe_schema.v3_2.models import TimeSegmentFraction, TimeSeason, SeasonLabel, TimeOfDay, TimePeriod, Region
+
+from canoe_commercial.setup import config
 import canoe_commercial.comstock_dsd as comstock_dsd
 import canoe_commercial.existing_capacity as existing_capacity
 import canoe_commercial.new_capacity as new_capacity
+import canoe_commercial.utils as utils
 
 # Shortens lines a bit
 fuel_commodities = config.fuel_commodities
@@ -56,48 +58,63 @@ def pre_process():
     """
 
     for period in config.model_periods:
-        for h, row in config.time.iterrows():
-            curs.execute(
-                f"""REPLACE INTO
-                TimeSegmentFraction(season, tod, segfrac)
-                VALUES('{row['season']}', '{row['tod']}', {1/8760})"""
-            )
+        time_segment_f = config.time.apply(
+            lambda row: TimeSegmentFraction(
+                period=period,
+                season=row['season'],
+                tod=row['tod'],
+                segfrac=1/8760
+                ), axis=1)
+        sql, rows = TimeSegmentFraction.bulk_replace_into_sql(time_segment_f.tolist())
+        conn.executemany(sql, rows)
 
-        for i, season in enumerate(config.time['season'].unique()):
-            curs.execute(
-                f"""REPLACE INTO
-                TimeSeason(period, sequence, season)
-                VALUES({period}, {i}, '{season}')"""
-            )
-
-    for season in config.time['season'].unique():
-        curs.execute(
-            f"""REPLACE INTO
-            SeasonLabel(season)
-            VALUES('{season}')"""
+    # TODO: Check if this preserves the correct season sequence
+    # TimeSeason
+    time_season = [
+        TimeSeason(
+            period=period,
+            sequence=i,
+            season=season
         )
+        for period, (i, season) in zip(config.model_periods, enumerate(config.time['season'].unique()))
+    ]
+    
+    sql, rows = TimeSeason.bulk_replace_into_sql(time_season)
+    conn.executemany(sql, rows)
 
-    for i, tod in enumerate(config.time['tod'].unique()):
-        curs.execute(
-            f"""REPLACE INTO
-            TimeOfDay(tod)
-            VALUES('{tod}')"""
-        )
-        
-    for i, period in enumerate([*config.model_periods, config.model_periods[-1] + config.params['period_step']]):
-        curs.execute(
-            f"""REPLACE INTO
-            TimePeriod(sequence, period, flag)
-            VALUES({i}, {period}, 'f')"""
-        )
+    # SeasonLabel
+    sql, rows =  SeasonLabel.bulk_replace_into_sql(
+        [
+            SeasonLabel(season=season) for season in config.time['season'].unique()
+        ]
+    )
+    conn.executemany(sql, rows)
 
-    for region, row in config.regions.iterrows():
-        if row['include']:
-            curs.execute(
-                f"""REPLACE INTO
-                Region(region, notes)
-                VALUES('{region}', '{row['description']}')"""
-            )
+    # TimeOfDay
+    sql, rows =  TimeOfDay.bulk_replace_into_sql(
+        [
+            TimeOfDay(tod=tod) for tod in config.time['tod'].unique()
+        ]
+    )
+    conn.executemany(sql, rows)
+
+    # TimePeriod
+    periods = enumerate([*config.model_periods, config.model_periods[-1] + config.params['period_step']])
+    sql, rows =  TimePeriod.bulk_replace_into_sql(
+        [
+            TimePeriod(sequence=i, period=period, flag="f") for i, period in periods
+        ]
+    )
+    conn.executemany(sql, rows)
+
+    # Region
+    sql, rows = Region.bulk_replace_into_sql(
+        [
+            Region(region=region, notes=row['description']) for region, row in config.regions.iterrows()
+        ]
+    )
+    conn.executemany(sql, rows)
+
 
 
     """
