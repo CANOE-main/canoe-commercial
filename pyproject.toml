@@ -54,5 +54,5 @@ python_version = "3.11"
 plugins = ["pydantic.mypy"]
 strict = true
 
-[tool.pytest.ini_options]
-testpaths = ["test"]
+# [tool.pytest.ini_options]
+# testpaths = ["tests"]
