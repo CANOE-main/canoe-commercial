@@ -22,7 +22,7 @@ dependencies = [
     "scipy",
     "xlrd",
     "pytz",
-    "canoe_schema @ git+ssh://git@github.com/CANOE-main/canoe-schema.git",
+    "canoe_schema @ git+https://github.com/CANOE-main/canoe-schema.git",
 ]
 
 [project.optional-dependencies]
