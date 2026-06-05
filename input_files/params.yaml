@@ -46,7 +46,7 @@ dsd_tolerance: 0.02
 # secondary energy consumption that's less than this fraction of total energy consumption in any region.
 sec_tolerance: 0.05
 
-sqlite_schema: "canoe_dataset_schema.sql"
+canoe_schema: "3.2"
 sqlite_database: "commercial.sqlite"
 excel_template: "Template spreadsheet (make a copy).xlsx"
 excel_output: "commercial.xlsx"
@@ -120,8 +120,8 @@ comstock:
   reference: 'NREL. (2024). ComStock-NREL (amy2018, v2, upgrade 39). https://data.openei.org/s3_viewer?bucket=oedi-data-lake'
 
 weather:
-  us_temperature_url: https://www.renewables.ninja/country_downloads/US/renewables_ninja_country_US_temperature_merra-2_pop-wtd.csv
-  us_humidity_url: https://www.renewables.ninja/country_downloads/US/renewables_ninja_country_US_humidity_merra-2_pop-wtd.csv
-  ca_temperature_url: https://www.renewables.ninja/country_downloads/CA/renewables_ninja_country_CA_temperature_merra-2_pop-wtd.csv
-  ca_humidity_url: https://www.renewables.ninja/country_downloads/CA/renewables_ninja_country_CA_humidity_merra-2_pop-wtd.csv
+  us_temperature_url: https://www.renewables.ninja/country_downloads/US/ninja-weather-country-US-temperature_pop_wtd-merra2.csv
+  us_humidity_url: https://www.renewables.ninja/country_downloads/US/ninja-weather-country-US-humidity_pop_wtd-merra2.csv
+  ca_temperature_url: https://www.renewables.ninja/country_downloads/CA/ninja-weather-country-CA-temperature_pop_wtd-merra2.csv
+  ca_humidity_url: https://www.renewables.ninja/country_downloads/CA/ninja-weather-country-CA-humidity_pop_wtd-merra2.csv
   reference: 'Staffell et al. (2023) https://doi.org/10.1038/s41560-023-01341-5 https://www.renewables.ninja/'

@@ -3,14 +3,30 @@ Aggregates residential non-subsector-specific data
 Written by Ian David Elder for the CANOE model
 """
 
-from setup import config
-import utils
-import pandas as pd
-import sqlite3
 import os
-import comstock_dsd
-import existing_capacity
-import new_capacity
+import sqlite3
+import pandas as pd
+from itertools import product
+from canoe_schema.v3_2.models import (
+    Commodity,
+    DataSet,
+    DataSource,
+    Efficiency,
+    EmissionActivity,
+    Region,
+    SeasonLabel,
+    Technology,
+    TimeOfDay,
+    TimePeriod,
+    TimeSeason,
+    TimeSegmentFraction,
+)
+
+from canoe_commercial.setup import config
+import canoe_commercial.comstock_dsd as comstock_dsd
+import canoe_commercial.existing_capacity as existing_capacity
+import canoe_commercial.new_capacity as new_capacity
+import canoe_commercial.utils as utils
 
 # Shortens lines a bit
 fuel_commodities = config.fuel_commodities
@@ -56,48 +72,63 @@ def pre_process():
     """
 
     for period in config.model_periods:
-        for h, row in config.time.iterrows():
-            curs.execute(
-                f"""REPLACE INTO
-                TimeSegmentFraction(season, tod, segfrac)
-                VALUES('{row['season']}', '{row['tod']}', {1/8760})"""
-            )
+        time_segment_f = config.time.apply(
+            lambda row: TimeSegmentFraction(
+                period=period,
+                season=row['season'],
+                tod=row['tod'],
+                segfrac=1/8760
+                ), axis=1)
+        sql, rows = TimeSegmentFraction.bulk_replace_into_sql(time_segment_f.tolist())
+        conn.executemany(sql, rows)
 
-        for i, season in enumerate(config.time['season'].unique()):
-            curs.execute(
-                f"""REPLACE INTO
-                TimeSeason(period, sequence, season)
-                VALUES({period}, {i}, '{season}')"""
-            )
-
-    for season in config.time['season'].unique():
-        curs.execute(
-            f"""REPLACE INTO
-            SeasonLabel(season)
-            VALUES('{season}')"""
+    # TODO: Check if this preserves the correct season sequence
+    # TimeSeason
+    time_season = [
+        TimeSeason(
+            period=period,
+            sequence=i,
+            season=season
         )
+        for period, (i, season) in product(config.model_periods, enumerate(config.time['season'].unique()))
+    ]
+    
+    sql, rows = TimeSeason.bulk_replace_into_sql(time_season)
+    conn.executemany(sql, rows)
 
-    for i, tod in enumerate(config.time['tod'].unique()):
-        curs.execute(
-            f"""REPLACE INTO
-            TimeOfDay(tod)
-            VALUES('{tod}')"""
-        )
-        
-    for i, period in enumerate([*config.model_periods, config.model_periods[-1] + config.params['period_step']]):
-        curs.execute(
-            f"""REPLACE INTO
-            TimePeriod(sequence, period, flag)
-            VALUES({i}, {period}, 'f')"""
-        )
+    # SeasonLabel
+    sql, rows =  SeasonLabel.bulk_replace_into_sql(
+        [
+            SeasonLabel(season=season) for season in config.time['season'].unique()
+        ]
+    )
+    conn.executemany(sql, rows)
 
-    for region, row in config.regions.iterrows():
-        if row['include']:
-            curs.execute(
-                f"""REPLACE INTO
-                Region(region, notes)
-                VALUES('{region}', '{row['description']}')"""
-            )
+    # TimeOfDay
+    sql, rows =  TimeOfDay.bulk_replace_into_sql(
+        [
+            TimeOfDay(tod=tod) for tod in config.time['tod'].unique()
+        ]
+    )
+    conn.executemany(sql, rows)
+
+    # TimePeriod
+    periods = enumerate([*config.model_periods, config.model_periods[-1] + config.params['period_step']])
+    sql, rows =  TimePeriod.bulk_replace_into_sql(
+        [
+            TimePeriod(sequence=i, period=period, flag="f") for i, period in periods
+        ]
+    )
+    conn.executemany(sql, rows)
+
+    # Region
+    sql, rows = Region.bulk_replace_into_sql(
+        [
+            Region(region=region, notes=row['description']) for region, row in config.regions.iterrows()
+        ]
+    )
+    conn.executemany(sql, rows)
+
 
 
     """
@@ -107,19 +138,31 @@ def pre_process():
     """
     
     for _code, comm_config in config.fuel_commodities.iterrows():
-        curs.execute(
-            f"""REPLACE INTO
-            Commodity(name, flag, description, data_id)
-            VALUES('{comm_config['comm']}', '{comm_config['flag']}', '({comm_config['unit']}) {comm_config['description']}', '{utils.data_id()}')"""
+        sql, rows = Commodity.bulk_replace_into_sql(
+            [
+                Commodity(
+                    name=comm_config['comm'],
+                    flag=comm_config['flag'],
+                    description=f"({comm_config['unit']}) {comm_config['description']}",
+                    data_id=utils.data_id(),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
         
     if config.params['include_emissions']:
         # CO2-equivalent emission commodity
-        curs.execute(
-            f"""REPLACE INTO
-            Commodity(name, flag, description, data_id)
-            VALUES('{config.params['emission_commodity']}', 'e', '(ktCO2eq) CO2-equivalent emissions', '{utils.data_id()}')"""
+        sql, rows = Commodity.bulk_replace_into_sql(
+            [
+                Commodity(
+                    name=config.params['emission_commodity'],
+                    flag='e',
+                    description='(ktCO2eq) CO2-equivalent emissions',
+                    data_id=utils.data_id(),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
 
 
     conn.commit()
@@ -147,11 +190,15 @@ def post_process():
     exs_vints = set([fetch[0] for fetch in curs.execute(f"SELECT vintage FROM Efficiency").fetchall() if fetch[0] not in config.model_periods])
 
     for vint in exs_vints:
-        curs.execute(
-            f"""INSERT OR IGNORE INTO
-            TimePeriod(period, flag)
-            VALUES({vint}, 'e')"""
+        sql, rows = TimePeriod.bulk_insert_or_ignore_sql(
+            [
+                TimePeriod(
+                    period=vint,
+                    flag='e',
+                )
+            ]
         )
+        conn.executemany(sql, rows)
 
 
     """
@@ -162,11 +209,16 @@ def post_process():
 
     # Add all references in the bibliography to the references tables
     for reference in config.refs:
-        curs.execute(
-            f"""REPLACE INTO
-            DataSource(source_id, source, data_id)
-            VALUES('{reference.id}', '{reference.citation}', "{utils.data_id()}")"""
+        sql, rows = DataSource.bulk_replace_into_sql(
+            [
+                DataSource(
+                    source_id=reference.id,
+                    source=reference.citation,
+                    data_id=utils.data_id(),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
 
     
     """
@@ -176,11 +228,8 @@ def post_process():
     """
 
     for id in sorted(config.data_ids):
-        curs.execute(
-            f"""REPLACE INTO
-            DataSet(data_id)
-            VALUES('{id}')"""
-        )
+        sql, rows = DataSet.bulk_replace_into_sql([DataSet(data_id=id)])
+        conn.executemany(sql, rows)
     
     # Check for missing data IDs
     tables = [t[0] for t in curs.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
@@ -244,13 +293,29 @@ def aggregate_emissions():
             # Note assumed fuel
             note = f"Emissions factor using {epa_fuel} (EPA, {config.params['epa_year']}) divided by efficiency as emissions are per output unit energy."
 
-            curs.execute(
-                f"""REPLACE INTO
-                EmissionActivity(region, emis_comm, input_comm, tech, vintage, output_comm, activity, units,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{row[0]}', '{emis_comm}', '{row[1]}', '{row[2]}', {row[3]}, '{row[4]}', {emis_act}, '{emis_units}',
-                '{note}', '{ref.id}', 1, 2, 3, 3, 2, '{utils.data_id(row[0])}')"""
+            sql, rows = EmissionActivity.bulk_replace_into_sql(
+                [
+                    EmissionActivity(
+                        region=row[0],
+                        emis_comm=emis_comm,
+                        input_comm=row[1],
+                        tech=row[2],
+                        vintage=row[3],
+                        output_comm=row[4],
+                        activity=emis_act,
+                        units=emis_units,
+                        notes=note,
+                        data_source=ref.id,
+                        dq_cred=1,
+                        dq_geog=2,
+                        dq_struc=3,
+                        dq_tech=3,
+                        dq_time=2,
+                        data_id=utils.data_id(row[0]),
+                    )
+                ]
             )
+            conn.executemany(sql, rows)
     
 
     conn.commit()
@@ -280,11 +345,18 @@ def aggregate_imports():
         
         description = f"import dummy for {out_comm['description']}"
 
-        curs.execute(
-            f"""REPLACE INTO
-            Technology(tech, flag, sector, description)
-            VALUES('{tech}', 'p', 'commercial', '{description}')"""
+        sql, rows = Technology.bulk_replace_into_sql(
+            [
+                Technology(
+                    tech=tech,
+                    flag='p',
+                    sector='commercial',
+                    description=description,
+                    data_id='COMHR001',
+                )
+            ]
         )
+        conn.executemany(sql, rows)
         
         # A single vintage at first model period with no other parameters, classic dummy tech
         for region in config.model_regions:
@@ -294,12 +366,21 @@ def aggregate_imports():
                 print(f"Import {tech} skipped for region {region} as the fuel isn't used.")
                 continue
 
-            curs.execute(
-                f"""REPLACE INTO
-                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency, notes)
-                VALUES('{region}', '{config.fuel_commodities.loc[row['in_comm'], 'comm']}', '{tech}',
-                '{config.model_periods[0]}', '{out_comm['comm']}', 1, '{description})')"""
+            sql, rows = Efficiency.bulk_replace_into_sql(
+                [
+                    Efficiency(
+                        region=region,
+                        input_comm=config.fuel_commodities.loc[row['in_comm'], 'comm'],
+                        tech=tech,
+                        vintage=config.model_periods[0],
+                        output_comm=out_comm['comm'],
+                        efficiency=1,
+                        notes=f"{description})",
+                        data_id='COMHR001',
+                    )
+                ]
             )
+            conn.executemany(sql, rows)
             
     conn.commit()
     conn.close()

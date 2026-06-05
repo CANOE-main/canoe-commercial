@@ -5,7 +5,7 @@ Written by Ian David Elder for the CANOE model
 
 import sqlite3
 import pandas as pd
-from setup import config
+from canoe_commercial.setup import config
 
 
 # Exchange rate and inflation tables
@@ -67,6 +67,7 @@ def convert_currencies():
         curs.execute(f"DELETE FROM {table}")
 
         # Refill it with converted currency
+        # TODO(schema): After mapping each row to the matching cost model, replace this append with that model's to_bulk_insert_sql(...) helper to keep plain INSERT semantics.
         df.to_sql(table, conn, if_exists='append', index=False)
 
 

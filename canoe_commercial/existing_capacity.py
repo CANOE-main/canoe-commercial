@@ -28,11 +28,24 @@ Procedure:
 Written by Ian David Elder for the CANOE model
 """
 
-from setup import config
+from canoe_commercial.setup import config
 import sqlite3
-import utils
+import canoe_commercial.utils as utils
 import pandas as pd
-from currency_conversion import conv_curr
+from canoe_commercial.currency_conversion import conv_curr
+from canoe_schema.v3_2.models import (
+    CapacityToActivity,
+    Commodity,
+    CostFixed,
+    Demand,
+    DemandSpecificDistribution,
+    Efficiency,
+    ExistingCapacity,
+    LifetimeTech,
+    LimitAnnualCapacityFactor,
+    LimitTechInputSplitAnnual,
+    Technology,
+)
 
 base_year = config.params['base_year']
 aeo_ref = config.params['aeo_reference']
@@ -191,11 +204,17 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         ann_dem = dem * config.gdp_index # annual demand indexed to gdp growth
 
         ## Commodities
-        curs.execute(
-            f"""REPLACE INTO
-            Commodity(name, flag, description, data_id)
-            VALUES('{eu_config['comm']}', 'd', '({eu_config['dem_unit']}) {eu_config['description']}', '{utils.data_id()}')"""
+        sql, rows = Commodity.bulk_replace_into_sql(
+            [
+                Commodity(
+                    name=eu_config['comm'],
+                    flag='d',
+                    description=f"({eu_config['dem_unit']}) {eu_config['description']}",
+                    data_id=utils.data_id(),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
 
 
         ## DemandSpecificDistribution
@@ -225,13 +244,27 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                         ])
                 
             
-            conn.executemany(
-                f"""REPLACE INTO
-                DemandSpecificDistribution(region, period, season, tod, demand_name, dsd,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id) 
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                data
-            )
+            dsd_rows = [
+                DemandSpecificDistribution(
+                    region=row[0],
+                    period=row[1],
+                    season=row[2],
+                    tod=row[3],
+                    demand_name=row[4],
+                    dsd=row[5],
+                    notes=row[6],
+                    data_source=row[7],
+                    dq_cred=row[8],
+                    dq_geog=row[9],
+                    dq_struc=row[10],
+                    dq_tech=row[11],
+                    dq_time=row[12],
+                    data_id=row[13],
+                )
+                for row in data
+            ]
+            sql, rows = DemandSpecificDistribution.bulk_replace_into_sql(dsd_rows, include_nulls=True)
+            conn.executemany(sql, rows)
 
 
         ## Demand
@@ -243,13 +276,26 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
             note = (f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
                     f"indexed to projected provincial gdp growth (CER, {config.params['gdp_data_year']})")
 
-            curs.execute(
-                f"""REPLACE INTO
-                Demand(region, period, commodity, demand, units,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id) 
-                VALUES('{region}', {period}, '{eu_config['comm']}', {dem}, '({eu_config['dem_unit']})',
-                '{note}', '{ref.id}', 1, 2, 2, 2, 3, '{utils.data_id(region)}')"""
+            sql, rows = Demand.bulk_replace_into_sql(
+                [
+                    Demand(
+                        region=region,
+                        period=period,
+                        commodity=eu_config['comm'],
+                        demand=dem,
+                        units=f"({eu_config['dem_unit']})",
+                        notes=note,
+                        data_source=ref.id,
+                        dq_cred=1,
+                        dq_geog=2,
+                        dq_struc=2,
+                        dq_tech=2,
+                        dq_time=3,
+                        data_id=utils.data_id(region),
+                    )
+                ]
             )
+            conn.executemany(sql, rows)
             
 
 
@@ -282,34 +328,60 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
 
         ## Technologies
-        curs.execute(
-            f"""REPLACE INTO
-            Technology(tech, flag, sector, annual, description, data_id)
-            VALUES('{tech}', 'p', 'commercial', 1, '{tech_config['end_use']} {tech_config['description']}', '{utils.data_id()}')"""
+        sql, rows = Technology.bulk_replace_into_sql(
+            [
+                Technology(
+                    tech=tech,
+                    flag='p',
+                    sector='commercial',
+                    annual=1,
+                    description=f"{tech_config['end_use']} {tech_config['description']}",
+                    data_id=utils.data_id(),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
 
 
         ## LifetimeTech
         life = round(cdm_exs.loc[(tech_config['end_use'], tech_config['fuel']), 'avg_life'])
         note = f"Average life of installed stock indexed to shares of service demand by end use and fuel (AEO, {aeo_year})"
         ref = config.refs.get('aeo')
-        curs.execute(
-            f"""REPLACE INTO
-            LifetimeTech(region, tech, lifetime,
-            notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id) 
-            VALUES('{region}', '{tech}', {life},
-            '{note}', '{ref.id}', 1, 2, 1, 2, 3, '{utils.data_id(region)}')"""
+        sql, rows = LifetimeTech.bulk_replace_into_sql(
+            [
+                LifetimeTech(
+                    region=region,
+                    tech=tech,
+                    lifetime=life,
+                    notes=note,
+                    data_source=ref.id,
+                    dq_cred=1,
+                    dq_geog=2,
+                    dq_struc=1,
+                    dq_tech=2,
+                    dq_time=3,
+                    data_id=utils.data_id(region),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
         
 
         ## CapacityToActivity
         c2a = 1 # Capacity is in PJ/y and activity is in PJ
         note = "Capacity is in PJ/y and activity is in PJ so 1"
-        curs.execute(
-            f"""REPLACE INTO
-            CapacityToActivity(region, tech, c2a, notes, data_id)
-            VALUES('{region}', '{tech}', {c2a}, '{note}', '{utils.data_id(region)}')"""
+        sql, rows = CapacityToActivity.bulk_replace_into_sql(
+            [
+                CapacityToActivity(
+                    region=region,
+                    tech=tech,
+                    c2a=c2a,
+                    notes=note,
+                    data_id=utils.data_id(region),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
         
 
         # Spread existing capacity evenly over existing vintages
@@ -330,13 +402,27 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                     f"further indexed to service demand shares divided by efficiencies for installed base technologies "
                     f"of the same end use and fuel (AEO, {aeo_year}).")
             ref = config.refs.get('nrcan_aeo')
-            curs.execute(
-                f"""REPLACE INTO
-                Efficiency(region, input_comm, tech, vintage, output_comm, efficiency,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', '{fuel_config['comm']}', '{tech}', {vint}, '{eu_config['comm']}', {eff},
-                '{note}', '{ref.id}', 1, 2, 3, 2, 2, '{utils.data_id(region)}')"""
+            sql, rows = Efficiency.bulk_replace_into_sql(
+                [
+                    Efficiency(
+                        region=region,
+                        input_comm=fuel_config['comm'],
+                        tech=tech,
+                        vintage=vint,
+                        output_comm=eu_config['comm'],
+                        efficiency=eff,
+                        notes=note,
+                        data_source=ref.id,
+                        dq_cred=1,
+                        dq_geog=2,
+                        dq_struc=3,
+                        dq_tech=2,
+                        dq_time=2,
+                        data_id=utils.data_id(region),
+                    )
+                ]
             )
+            conn.executemany(sql, rows)
             
 
             ## ExistingCapacity
@@ -345,13 +431,26 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                     f"times average efficiency for installed base technologies (AEO, {aeo_year}) "
                     f"divided by estimated annual capacity factor (NREL, {comstock_year})")
             ref = config.refs.get('nrcan_aeo_comstock')
-            curs.execute(
-                f"""REPLACE INTO
-                ExistingCapacity(region, tech, vintage, capacity, units,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', '{tech}', {vint}, {cap}, '({eu_config['cap_unit']})',
-                '{note}', '{ref.id}', 1, 2, 2, 2, 1, '{utils.data_id(region)}')"""
+            sql, rows = ExistingCapacity.bulk_replace_into_sql(
+                [
+                    ExistingCapacity(
+                        region=region,
+                        tech=tech,
+                        vintage=vint,
+                        capacity=cap,
+                        units=f"({eu_config['cap_unit']})",
+                        notes=note,
+                        data_source=ref.id,
+                        dq_cred=1,
+                        dq_geog=2,
+                        dq_struc=2,
+                        dq_tech=2,
+                        dq_time=1,
+                        data_id=utils.data_id(region),
+                    )
+                ]
             )
+            conn.executemany(sql, rows)
             
 
             # Indexed by period and vintage
@@ -364,13 +463,27 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                 cost_fixed = conv_curr(cost_fixed)
                 note = f"Average maintenance cost of installed stock indexed to shares of service demand by end use and fuel (AEO, {aeo_year})"
                 ref = config.refs.get('aeo')
-                curs.execute(
-                    f"""REPLACE INTO
-                    CostFixed(region, period, tech, vintage, cost, units,
-                    notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                    VALUES('{region}', {period}, '{tech}', {vint}, {cost_fixed}, 'M$/PJ',
-                    '{note}', '{ref.id}', 1, 2, 1, 2, 2, '{utils.data_id(region)}')"""
+                sql, rows = CostFixed.bulk_replace_into_sql(
+                    [
+                        CostFixed(
+                            region=region,
+                            period=period,
+                            tech=tech,
+                            vintage=vint,
+                            cost=cost_fixed,
+                            units='M$/PJ',
+                            notes=note,
+                            data_source=ref.id,
+                            dq_cred=1,
+                            dq_geog=2,
+                            dq_struc=1,
+                            dq_tech=2,
+                            dq_time=2,
+                            data_id=utils.data_id(region),
+                        )
+                    ]
                 )
+                conn.executemany(sql, rows)
 
 
         ## AnnualCapacityFactor
@@ -382,13 +495,27 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
             if max(vints) + life <= period: continue # no vintage would live this long
 
-            curs.execute(
-                f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{tech}', '{eu_config['comm']}', 'le', {acf},
-                '{note}', '{ref.id}', 1, 2, 5, 2, 3, '{utils.data_id(region)}')"""
+            sql, rows = LimitAnnualCapacityFactor.bulk_replace_into_sql(
+                [
+                    LimitAnnualCapacityFactor(
+                        region=region,
+                        vintage=period,
+                        tech=tech,
+                        output_comm=eu_config['comm'],
+                        operator='le',
+                        factor=acf,
+                        notes=note,
+                        data_source=ref.id,
+                        dq_cred=1,
+                        dq_geog=2,
+                        dq_struc=5,
+                        dq_tech=2,
+                        dq_time=3,
+                        data_id=utils.data_id(region),
+                    )
+                ], include_nulls=True
             )
+            conn.executemany(sql, rows)
             
 
     conn.commit()
@@ -454,18 +581,33 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
 
     ## Technologies
-    curs.execute(
-        f"""REPLACE INTO
-        Technology(tech, flag, sector, annual, unlim_cap, description, data_id)
-        VALUES('{tech}', 'p', 'commercial', 1, 1, '{tech_config['end_use']} {tech_config['description']}', '{utils.data_id()}')"""
+    sql, rows = Technology.bulk_replace_into_sql(
+        [
+            Technology(
+                tech=tech,
+                flag='p',
+                sector='commercial',
+                annual=1,
+                unlim_cap=1,
+                description=f"{tech_config['end_use']} {tech_config['description']}",
+                data_id=utils.data_id(),
+            )
+        ]
     )
+    conn.executemany(sql, rows)
 
     ## Commodities
-    curs.execute(
-        f"""REPLACE INTO
-        Commodity(name, flag, description, data_id)
-        VALUES('{eu_config['comm']}', 'd', '({eu_config['dem_unit']}) {eu_config['description']}', '{utils.data_id()}')"""
+    sql, rows = Commodity.bulk_replace_into_sql(
+        [
+            Commodity(
+                name=eu_config['comm'],
+                flag='d',
+                description=f"({eu_config['dem_unit']}) {eu_config['description']}",
+                data_id=utils.data_id(),
+            )
+        ]
     )
+    conn.executemany(sql, rows)
 
 
     config.refs.add('nrcan_cef', f"{nrcan_ref}; {config.params['cef_reference']}")
@@ -477,11 +619,21 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
         ## Efficiency
         note = "Dummy tech. Demand equal to secondary energy consumption"
-        curs.execute(
-            f"""REPLACE INTO
-            Efficiency(region, input_comm, tech, vintage, output_comm, efficiency, notes, data_id)
-            VALUES('{region}', '{fuel_config['comm']}', '{tech}', {vint}, '{eu_config['comm']}', 1, '{note}', '{utils.data_id(region)}')"""
+        sql, rows = Efficiency.bulk_replace_into_sql(
+            [
+                Efficiency(
+                    region=region,
+                    input_comm=fuel_config['comm'],
+                    tech=tech,
+                    vintage=vint,
+                    output_comm=eu_config['comm'],
+                    efficiency=1,
+                    notes=note,
+                    data_id=utils.data_id(region),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
         
 
         ## TechInputSplit
@@ -498,13 +650,27 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
             note = f"Secondary energy consumption by fuel (NRCan, {base_year}) minus space heating and cooling. {config.params['cef_note']}"
             ref = config.refs.get('nrcan_cef')
-            curs.execute(
-                f"""REPLACE INTO
-                LimitTechInputSplitAnnual(region, period, input_comm, tech, operator, proportion,
-                notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{fuel_config['comm']}', '{tech}', 'le', {tis},
-                '{note}', '{ref.id}', 1, 1, 5, 1, 1, '{utils.data_id(region)}')"""
+            sql, rows = LimitTechInputSplitAnnual.bulk_replace_into_sql(
+                [
+                    LimitTechInputSplitAnnual(
+                        region=region,
+                        period=period,
+                        input_comm=fuel_config['comm'],
+                        tech=tech,
+                        operator='le',
+                        proportion=tis,
+                        notes=note,
+                        data_source=ref.id,
+                        dq_cred=1,
+                        dq_geog=1,
+                        dq_struc=5,
+                        dq_tech=1,
+                        dq_time=1,
+                        data_id=utils.data_id(region),
+                    )
+                ]
             )
+            conn.executemany(sql, rows)
 
 
     ## DemandSpecificDistribution
@@ -534,13 +700,27 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
                     ])
             
         
-        conn.executemany(
-            f"""REPLACE INTO
-            DemandSpecificDistribution(region, period, season, tod, demand_name, dsd,
-            notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id) 
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            data
-        )
+        dsd_rows = [
+            DemandSpecificDistribution(
+                region=row[0],
+                period=row[1],
+                season=row[2],
+                tod=row[3],
+                demand_name=row[4],
+                dsd=row[5],
+                notes=row[6],
+                data_source=row[7],
+                dq_cred=row[8],
+                dq_geog=row[9],
+                dq_struc=row[10],
+                dq_tech=row[11],
+                dq_time=row[12],
+                data_id=row[13],
+            )
+            for row in data
+        ]
+        sql, rows = DemandSpecificDistribution.bulk_replace_into_sql(dsd_rows, include_nulls=True)
+        conn.executemany(sql, rows)
 
 
     ## Demand
@@ -552,13 +732,26 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
         dem = ann_dem.loc[period].iloc[0]
         note = f"Annual secondary energy consumption summed over all fuels minus space heating and cooling (NRCan, {base_year})"
 
-        curs.execute(
-            f"""REPLACE INTO
-            Demand(region, period, commodity, demand, units,
-            notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id) 
-            VALUES('{region}', {period}, '{eu_config['comm']}', {dem}, '({eu_config['dem_unit']})',
-            '{note}', '{ref.id}', 1, 2, 2, 2, 3, '{utils.data_id(region)}')"""
+        sql, rows = Demand.bulk_replace_into_sql(
+            [
+                Demand(
+                    region=region,
+                    period=period,
+                    commodity=eu_config['comm'],
+                    demand=dem,
+                    units=f"({eu_config['dem_unit']})",
+                    notes=note,
+                    data_source=ref.id,
+                    dq_cred=1,
+                    dq_geog=2,
+                    dq_struc=2,
+                    dq_tech=2,
+                    dq_time=3,
+                    data_id=utils.data_id(region),
+                )
+            ]
         )
+        conn.executemany(sql, rows)
 
     conn.commit()
     conn.close()
