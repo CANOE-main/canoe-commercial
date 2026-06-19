@@ -6,20 +6,13 @@ Written by Ian David Elder for the CANOE model
 import os
 import sqlite3
 import pandas as pd
-from itertools import product
 from canoe_schema.v3_2.models import (
     Commodity,
     DataSet,
     DataSource,
     Efficiency,
     EmissionActivity,
-    Region,
-    SeasonLabel,
     Technology,
-    TimeOfDay,
-    TimePeriod,
-    TimeSeason,
-    TimeSegmentFraction,
 )
 
 from canoe_commercial.setup import config
@@ -28,6 +21,7 @@ import canoe_commercial.existing_capacity as existing_capacity
 import canoe_commercial.new_capacity as new_capacity
 import canoe_commercial.utils as utils
 import canoe_commercial.data_scraper as data_scraper
+import canoe_commercial.validation as validation
 
 # Shortens lines a bit
 fuel_commodities = config.fuel_commodities
@@ -61,83 +55,17 @@ def aggregate():
 # For non-regional aggregation
 def pre_process():
 
-    # Connect to the new database file
     conn = sqlite3.connect(config.database_file)
-    curs = conn.cursor() # Cursor object interacts with the sqlite db
-
 
     """
     ##############################################################
-        Basic parameters
+        Fuel commodities (module-specific, C table)
+        Global tables (time_period, region, time_season, time_of_day,
+        time_season_sequential) are seeded by canoe-base and validated
+        in commercial_sector.build_database() before this runs.
     ##############################################################
     """
 
-    for period in config.model_periods:
-        time_segment_f = config.time.apply(
-            lambda row: TimeSegmentFraction(
-                period=period,
-                season=row['season'],
-                tod=row['tod'],
-                segfrac=1/8760
-                ), axis=1)
-        sql, rows = TimeSegmentFraction.bulk_replace_into_sql(time_segment_f.tolist())
-        conn.executemany(sql, rows)
-
-    # TODO: Check if this preserves the correct season sequence
-    # TimeSeason
-    time_season = [
-        TimeSeason(
-            period=period,
-            sequence=i,
-            season=season
-        )
-        for period, (i, season) in product(config.model_periods, enumerate(config.time['season'].unique()))
-    ]
-    
-    sql, rows = TimeSeason.bulk_replace_into_sql(time_season)
-    conn.executemany(sql, rows)
-
-    # SeasonLabel
-    sql, rows =  SeasonLabel.bulk_replace_into_sql(
-        [
-            SeasonLabel(season=season) for season in config.time['season'].unique()
-        ]
-    )
-    conn.executemany(sql, rows)
-
-    # TimeOfDay
-    sql, rows =  TimeOfDay.bulk_replace_into_sql(
-        [
-            TimeOfDay(tod=tod) for tod in config.time['tod'].unique()
-        ]
-    )
-    conn.executemany(sql, rows)
-
-    # TimePeriod
-    periods = enumerate([*config.model_periods, config.model_periods[-1] + config.params['period_step']])
-    sql, rows =  TimePeriod.bulk_replace_into_sql(
-        [
-            TimePeriod(sequence=i, period=period, flag="f") for i, period in periods
-        ]
-    )
-    conn.executemany(sql, rows)
-
-    # Region
-    sql, rows = Region.bulk_replace_into_sql(
-        [
-            Region(region=region, notes=row['description']) for region, row in config.regions.iterrows()
-        ]
-    )
-    conn.executemany(sql, rows)
-
-
-
-    """
-    ##############################################################
-        Commodities
-    ##############################################################
-    """
-    
     for _code, comm_config in config.fuel_commodities.iterrows():
         sql, rows = Commodity.bulk_replace_into_sql(
             [
@@ -150,21 +78,6 @@ def pre_process():
             ]
         )
         conn.executemany(sql, rows)
-        
-    if config.params['include_emissions']:
-        # CO2-equivalent emission commodity
-        sql, rows = Commodity.bulk_replace_into_sql(
-            [
-                Commodity(
-                    name=config.params['emission_commodity'],
-                    flag='e',
-                    description='(ktCO2eq) CO2-equivalent emissions',
-                    data_id=utils.data_id(),
-                )
-            ]
-        )
-        conn.executemany(sql, rows)
-
 
     conn.commit()
     conn.close()
@@ -183,23 +96,23 @@ def post_process():
 
     """
     ##############################################################
-        Existing time periods
+        Existing vintage periods (validate, not write)
+        canoe-base seeds flag='e' periods covering all historical
+        vintages. See DECISIONS.md — decision 3.
+        NOTE: "Efficiency" is the v3.2 table name; update to
+        "efficiency" when migrating to v4.0 models in Stage 4.
     ##############################################################
     """
 
-    # Add all existing vintages to existing time periods
-    exs_vints = set([fetch[0] for fetch in curs.execute(f"SELECT vintage FROM Efficiency").fetchall() if fetch[0] not in config.model_periods])
-
-    for vint in exs_vints:
-        sql, rows = TimePeriod.bulk_insert_or_ignore_sql(
-            [
-                TimePeriod(
-                    period=vint,
-                    flag='e',
-                )
-            ]
-        )
-        conn.executemany(sql, rows)
+    exs_vints = {
+        row[0]
+        for row in curs.execute("SELECT vintage FROM Efficiency").fetchall()
+        if row[0] not in config.model_periods
+    }
+    validation.validate_existing_vintage_periods(
+        conn, exs_vints,
+        behavior=config.params.get('validation_behavior', 'error'),
+    )
 
 
     """

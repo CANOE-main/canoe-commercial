@@ -4,10 +4,12 @@ Written by Ian David Elder for the CANOE model
 """
 
 import os
+import sqlite3
 from matplotlib import pyplot as pp
 
 import canoe_commercial.utils as utils
 import canoe_commercial.all_subsectors as all_subsectors
+import canoe_commercial.validation as validation
 from canoe_commercial.setup import config
 
 
@@ -15,6 +17,11 @@ from canoe_commercial.setup import config
 def build_database():
 
     print(f"Aggregating commercial sector into {os.path.basename(config.database_file)}...\n")
+
+    # Step 0: validate canoe-base DB structure against module config
+    conn = sqlite3.connect(config.database_file)
+    validation.validate_db_against_config(config, conn)
+    conn.close()
 
     all_subsectors.aggregate()
 
