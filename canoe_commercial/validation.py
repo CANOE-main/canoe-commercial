@@ -17,6 +17,14 @@ the module is fully migrated to v4.0 models (Stage 4).
 
 import logging
 
+from canoe_schema.v4_0.models import (
+    Commodity,
+    Region,
+    TimePeriod,
+    TimeSeason,
+    TimeOfDay,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,7 +57,7 @@ def check_missing_periods(db_conn, model_periods, behavior='error'):
     db_periods = {
         row[0]
         for row in cursor.execute(
-            "SELECT period FROM time_period WHERE flag = 'f'"
+            f"SELECT period FROM {TimePeriod.__table_name__} WHERE flag = 'f'"
         ).fetchall()
     }
     missing = [p for p in model_periods if p not in db_periods]
@@ -69,7 +77,7 @@ def check_missing_regions(db_conn, model_regions, behavior='error'):
     """
     cursor = db_conn.cursor()
     db_regions = {
-        row[0] for row in cursor.execute("SELECT region FROM region").fetchall()
+        row[0] for row in cursor.execute(f"SELECT region FROM {Region.__table_name__}").fetchall()
     }
     missing = [r for r in model_regions if r not in db_regions]
     if missing:
@@ -90,10 +98,10 @@ def check_missing_time_slices(db_conn, time_df, behavior='error'):
     cursor = db_conn.cursor()
 
     db_seasons = {
-        row[0] for row in cursor.execute("SELECT season FROM time_season").fetchall()
+        row[0] for row in cursor.execute(f"SELECT season FROM {TimeSeason.__table_name__}").fetchall()
     }
     db_tods = {
-        row[0] for row in cursor.execute("SELECT tod FROM time_of_day").fetchall()
+        row[0] for row in cursor.execute(f"SELECT tod FROM {TimeOfDay.__table_name__}").fetchall()
     }
 
     missing_seasons = [s for s in time_df['season'].unique() if s not in db_seasons]
@@ -121,7 +129,7 @@ def check_emission_commodity(db_conn, emission_commodity, behavior='error'):
     """
     cursor = db_conn.cursor()
     row = cursor.execute(
-        "SELECT name FROM commodity WHERE name = ?", (emission_commodity,)
+        f"SELECT name FROM {Commodity.__table_name__} WHERE name = ?", (emission_commodity,)
     ).fetchone()
     if row is None:
         _handle(
@@ -146,7 +154,7 @@ def validate_existing_vintage_periods(db_conn, vintage_years, behavior='error'):
     db_existing = {
         row[0]
         for row in cursor.execute(
-            "SELECT period FROM time_period WHERE flag = 'e'"
+            f"SELECT period FROM {TimePeriod.__table_name__} WHERE flag = 'e'"
         ).fetchall()
     }
     missing = [v for v in vintage_years if v not in db_existing]

@@ -6,7 +6,7 @@ Written by Ian David Elder for the CANOE model
 import os
 import sqlite3
 import pandas as pd
-from canoe_schema.v3_2.models import (
+from canoe_schema.v4_0.models import (
     Commodity,
     DataSet,
     DataSource,
@@ -67,7 +67,7 @@ def pre_process():
     """
 
     for _code, comm_config in config.fuel_commodities.iterrows():
-        sql, rows = Commodity.bulk_replace_into_sql(
+        sql, rows = Commodity.bulk_insert_or_ignore_sql(
             [
                 Commodity(
                     name=comm_config['comm'],
@@ -99,14 +99,12 @@ def post_process():
         Existing vintage periods (validate, not write)
         canoe-base seeds flag='e' periods covering all historical
         vintages. See DECISIONS.md — decision 3.
-        NOTE: "Efficiency" is the v3.2 table name; update to
-        "efficiency" when migrating to v4.0 models in Stage 4.
     ##############################################################
     """
 
     exs_vints = {
         row[0]
-        for row in curs.execute("SELECT vintage FROM Efficiency").fetchall()
+        for row in curs.execute(f"SELECT vintage FROM {Efficiency.__table_name__}").fetchall()
         if row[0] not in config.model_periods
     }
     validation.validate_existing_vintage_periods(
@@ -123,7 +121,7 @@ def post_process():
 
     # Add all references in the bibliography to the references tables
     for reference in config.refs:
-        sql, rows = DataSource.bulk_replace_into_sql(
+        sql, rows = DataSource.bulk_insert_or_ignore_sql(
             [
                 DataSource(
                     source_id=reference.id,
@@ -142,7 +140,7 @@ def post_process():
     """
 
     for id in sorted(config.data_ids):
-        sql, rows = DataSet.bulk_replace_into_sql([DataSet(data_id=id)])
+        sql, rows = DataSet.bulk_insert_or_ignore_sql([DataSet(data_id=id)])
         conn.executemany(sql, rows)
     
     # Check for missing data IDs
@@ -197,7 +195,7 @@ def aggregate_emissions():
     for tech in config.all_techs:
 
         # Valid vintages and efficiencies from Efficiency table
-        rows = curs.execute(f"SELECT region, input_comm, tech, vintage, output_comm, efficiency FROM Efficiency WHERE tech == '{tech}'").fetchall()
+        rows = curs.execute(f"SELECT region, input_comm, tech, vintage, output_comm, efficiency FROM {Efficiency.__table_name__} WHERE tech == '{tech}'").fetchall()
 
         for row in rows:
 
@@ -211,7 +209,7 @@ def aggregate_emissions():
             # Note assumed fuel
             note = f"Emissions factor using {epa_fuel} (EPA, {config.params['epa_year']}) divided by efficiency as emissions are per output unit energy."
 
-            sql, rows = EmissionActivity.bulk_replace_into_sql(
+            sql, rows = EmissionActivity.bulk_insert_or_ignore_sql(
                 [
                     EmissionActivity(
                         region=row[0],
@@ -249,7 +247,7 @@ def aggregate_imports():
     curs = conn.cursor()
 
     # Get which fuel commodities are actually being used
-    df_eff = pd.read_sql_query("SELECT * FROM Efficiency", conn)
+    df_eff = pd.read_sql_query(f"SELECT * FROM {Efficiency.__table_name__}", conn)
 
     for tech, row in config.import_techs.iterrows():
         
@@ -263,7 +261,7 @@ def aggregate_imports():
         
         description = f"import dummy for {out_comm['description']}"
 
-        sql, rows = Technology.bulk_replace_into_sql(
+        sql, rows = Technology.bulk_insert_or_ignore_sql(
             [
                 Technology(
                     tech=tech,
@@ -284,7 +282,7 @@ def aggregate_imports():
                 print(f"Import {tech} skipped for region {region} as the fuel isn't used.")
                 continue
 
-            sql, rows = Efficiency.bulk_replace_into_sql(
+            sql, rows = Efficiency.bulk_insert_or_ignore_sql(
                 [
                     Efficiency(
                         region=region,

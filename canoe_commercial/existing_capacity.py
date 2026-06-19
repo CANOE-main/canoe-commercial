@@ -33,7 +33,7 @@ import sqlite3
 import canoe_commercial.utils as utils
 import pandas as pd
 from canoe_commercial.currency_conversion import conv_curr
-from canoe_schema.v3_2.models import (
+from canoe_schema.v4_0.models import (
     CapacityToActivity,
     Commodity,
     CostFixed,
@@ -204,7 +204,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         ann_dem = dem * config.gdp_index # annual demand indexed to gdp growth
 
         ## Commodities
-        sql, rows = Commodity.bulk_replace_into_sql(
+        sql, rows = Commodity.bulk_insert_or_ignore_sql(
             [
                 Commodity(
                     name=eu_config['comm'],
@@ -263,7 +263,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                 )
                 for row in data
             ]
-            sql, rows = DemandSpecificDistribution.bulk_replace_into_sql(dsd_rows, include_nulls=True)
+            sql, rows = DemandSpecificDistribution.bulk_insert_or_ignore_sql(dsd_rows, include_nulls=True)
             conn.executemany(sql, rows)
 
 
@@ -276,7 +276,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
             note = (f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
                     f"indexed to projected provincial gdp growth (CER, {config.params['gdp_data_year']})")
 
-            sql, rows = Demand.bulk_replace_into_sql(
+            sql, rows = Demand.bulk_insert_or_ignore_sql(
                 [
                     Demand(
                         region=region,
@@ -328,7 +328,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
 
         ## Technologies
-        sql, rows = Technology.bulk_replace_into_sql(
+        sql, rows = Technology.bulk_insert_or_ignore_sql(
             [
                 Technology(
                     tech=tech,
@@ -347,7 +347,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         life = round(cdm_exs.loc[(tech_config['end_use'], tech_config['fuel']), 'avg_life'])
         note = f"Average life of installed stock indexed to shares of service demand by end use and fuel (AEO, {aeo_year})"
         ref = config.refs.get('aeo')
-        sql, rows = LifetimeTech.bulk_replace_into_sql(
+        sql, rows = LifetimeTech.bulk_insert_or_ignore_sql(
             [
                 LifetimeTech(
                     region=region,
@@ -370,7 +370,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         ## CapacityToActivity
         c2a = 1 # Capacity is in PJ/y and activity is in PJ
         note = "Capacity is in PJ/y and activity is in PJ so 1"
-        sql, rows = CapacityToActivity.bulk_replace_into_sql(
+        sql, rows = CapacityToActivity.bulk_insert_or_ignore_sql(
             [
                 CapacityToActivity(
                     region=region,
@@ -402,7 +402,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                     f"further indexed to service demand shares divided by efficiencies for installed base technologies "
                     f"of the same end use and fuel (AEO, {aeo_year}).")
             ref = config.refs.get('nrcan_aeo')
-            sql, rows = Efficiency.bulk_replace_into_sql(
+            sql, rows = Efficiency.bulk_insert_or_ignore_sql(
                 [
                     Efficiency(
                         region=region,
@@ -431,7 +431,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                     f"times average efficiency for installed base technologies (AEO, {aeo_year}) "
                     f"divided by estimated annual capacity factor (NREL, {comstock_year})")
             ref = config.refs.get('nrcan_aeo_comstock')
-            sql, rows = ExistingCapacity.bulk_replace_into_sql(
+            sql, rows = ExistingCapacity.bulk_insert_or_ignore_sql(
                 [
                     ExistingCapacity(
                         region=region,
@@ -463,7 +463,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                 cost_fixed = conv_curr(cost_fixed)
                 note = f"Average maintenance cost of installed stock indexed to shares of service demand by end use and fuel (AEO, {aeo_year})"
                 ref = config.refs.get('aeo')
-                sql, rows = CostFixed.bulk_replace_into_sql(
+                sql, rows = CostFixed.bulk_insert_or_ignore_sql(
                     [
                         CostFixed(
                             region=region,
@@ -495,12 +495,12 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
             if max(vints) + life <= period: continue # no vintage would live this long
 
-            sql, rows = LimitAnnualCapacityFactor.bulk_replace_into_sql(
+            sql, rows = LimitAnnualCapacityFactor.bulk_insert_or_ignore_sql(
                 [
                     LimitAnnualCapacityFactor(
                         region=region,
                         vintage=period,
-                        tech=tech,
+                        tech_or_group=tech,
                         output_comm=eu_config['comm'],
                         operator='le',
                         factor=acf,
@@ -581,7 +581,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
 
     ## Technologies
-    sql, rows = Technology.bulk_replace_into_sql(
+    sql, rows = Technology.bulk_insert_or_ignore_sql(
         [
             Technology(
                 tech=tech,
@@ -597,7 +597,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     conn.executemany(sql, rows)
 
     ## Commodities
-    sql, rows = Commodity.bulk_replace_into_sql(
+    sql, rows = Commodity.bulk_insert_or_ignore_sql(
         [
             Commodity(
                 name=eu_config['comm'],
@@ -619,7 +619,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
         ## Efficiency
         note = "Dummy tech. Demand equal to secondary energy consumption"
-        sql, rows = Efficiency.bulk_replace_into_sql(
+        sql, rows = Efficiency.bulk_insert_or_ignore_sql(
             [
                 Efficiency(
                     region=region,
@@ -650,7 +650,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
             note = f"Secondary energy consumption by fuel (NRCan, {base_year}) minus space heating and cooling. {config.params['cef_note']}"
             ref = config.refs.get('nrcan_cef')
-            sql, rows = LimitTechInputSplitAnnual.bulk_replace_into_sql(
+            sql, rows = LimitTechInputSplitAnnual.bulk_insert_or_ignore_sql(
                 [
                     LimitTechInputSplitAnnual(
                         region=region,
@@ -719,7 +719,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
             )
             for row in data
         ]
-        sql, rows = DemandSpecificDistribution.bulk_replace_into_sql(dsd_rows, include_nulls=True)
+        sql, rows = DemandSpecificDistribution.bulk_insert_or_ignore_sql(dsd_rows, include_nulls=True)
         conn.executemany(sql, rows)
 
 
@@ -732,7 +732,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
         dem = ann_dem.loc[period].iloc[0]
         note = f"Annual secondary energy consumption summed over all fuels minus space heating and cooling (NRCan, {base_year})"
 
-        sql, rows = Demand.bulk_replace_into_sql(
+        sql, rows = Demand.bulk_insert_or_ignore_sql(
             [
                 Demand(
                     region=region,

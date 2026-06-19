@@ -8,7 +8,7 @@ import sqlite3
 import canoe_commercial.utils as utils
 import pandas as pd
 from canoe_commercial.currency_conversion import conv_curr
-from canoe_schema.v3_2.models import (
+from canoe_schema.v4_0.models import (
     CapacityToActivity,
     CostFixed,
     CostInvest,
@@ -63,7 +63,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
 
 
         ## Technologies
-        sql, rows = Technology.bulk_replace_into_sql(
+        sql, rows = Technology.bulk_insert_or_ignore_sql(
             [
                 Technology(
                     tech=tech,
@@ -82,7 +82,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
         life = round(aeo_data['life'])
         note = f"Rounded life from AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
         ref = config.refs.get('aeo')
-        sql, rows = LifetimeTech.bulk_replace_into_sql(
+        sql, rows = LifetimeTech.bulk_insert_or_ignore_sql(
             [
                 LifetimeTech(
                     region=region,
@@ -105,7 +105,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
         ## CapacityToActivity
         c2a = 1 # Capacity is in PJ/y and activity is in PJ
         note = "Capacity is in PJ/y and activity is in PJ so 1"
-        sql, rows = CapacityToActivity.bulk_replace_into_sql(
+        sql, rows = CapacityToActivity.bulk_insert_or_ignore_sql(
             [
                 CapacityToActivity(
                     region=region,
@@ -126,7 +126,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
             eff = aeo_data['efficiency']
             note = f"From AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
             ref = config.refs.get('aeo')
-            sql, rows = Efficiency.bulk_replace_into_sql(
+            sql, rows = Efficiency.bulk_insert_or_ignore_sql(
                 [
                     Efficiency(
                         region=region,
@@ -154,7 +154,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
             cost_invest = conv_curr(cost_invest)
             note = f"Capcst from AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
             ref = config.refs.get('aeo')
-            sql, rows = CostInvest.bulk_replace_into_sql(
+            sql, rows = CostInvest.bulk_insert_or_ignore_sql(
                 [
                     CostInvest(
                         region=region,
@@ -186,7 +186,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                 cost_fixed = conv_curr(cost_fixed)
                 note = f"Maintcst from AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
                 ref = config.refs.get('aeo')
-                sql, rows = CostFixed.bulk_replace_into_sql(
+                sql, rows = CostFixed.bulk_insert_or_ignore_sql(
                     [
                         CostFixed(
                             region=region,
@@ -216,12 +216,12 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
             
         for period in config.model_periods:
                 
-            sql, rows = LimitAnnualCapacityFactor.bulk_replace_into_sql(
+            sql, rows = LimitAnnualCapacityFactor.bulk_insert_or_ignore_sql(
                 [
                     LimitAnnualCapacityFactor(
                         region=region,
                         vintage=period,
-                        tech=tech,
+                        tech_or_group=tech,
                         output_comm=eu_config['comm'],
                         operator='le',
                         factor=acf,

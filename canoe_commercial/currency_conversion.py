@@ -5,6 +5,7 @@ Written by Ian David Elder for the CANOE model
 
 import sqlite3
 import pandas as pd
+from canoe_schema.v4_0.models import CostFixed, CostInvest, CostVariable
 from canoe_commercial.setup import config
 
 
@@ -43,7 +44,11 @@ def conv_curr(
 def convert_currencies():
 
     # Names of tables and relevant data columns
-    cost_tables = {'CostInvest': 'cost_invest', 'CostFixed': 'cost_fixed', 'CostVariable': 'cost_variable'}
+    cost_tables = {
+        CostInvest.__table_name__: 'cost_invest',
+        CostFixed.__table_name__: 'cost_fixed',
+        CostVariable.__table_name__: 'cost_variable',
+    }
 
     conn = sqlite3.connect(config.database_file)
     curs = conn.cursor()
