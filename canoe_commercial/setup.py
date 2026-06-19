@@ -6,11 +6,9 @@ Written by Ian David Elder for the CANOE model
 import os
 import pandas as pd
 import yaml
-import requests
-import urllib.request
-import zipfile
 import sqlite3
 from canoe_schema import get_sql_schema
+import canoe_commercial.data_scraper as data_scraper
 
 
 def instantiate_database():
@@ -164,147 +162,34 @@ class config:
 
     def _get_aeo_data(cls):
 
-        config.aeo_cdm = pd.read_excel(config.input_files + 'ktekx.xlsx', sheet_name='ktek', skiprows=68, index_col=False).iloc[1:,0:27]
-        
-        # Rename integer indexing to readable values to improve code readability and minimise bugs
-        cdm_idx = pd.read_csv(config.input_files + 'aeo_cdm_indexing.csv', index_col=0)
-        for col in config.aeo_cdm.columns:
-            if col in cdm_idx.columns: config.aeo_cdm[col] = config.aeo_cdm[col].map(lambda n: cdm_idx.loc[n, col])
+        config.aeo_cdm = data_scraper.fetch_aeo_data(
+            aeo_file=config.input_files + 'ktekx.xlsx',
+            indexing_file=config.input_files + 'aeo_cdm_indexing.csv',
+        )
 
-        config.aeo_cdm['techname'] = config.aeo_cdm['techname'].str.lower()
-        
 
     
     def _get_population_projections(cls) -> pd.DataFrame:
 
-        config.populations = dict()
-
-        # Get historical population data from Statcan and take Q1
-        df_exs = config._get_statcan_table(
-            table=17100009,
-            save_as='population_historical',
-            filter=lambda df: df.loc[
-                df['REF_DATE'].str.contains('-01')
-            ],
-            usecols=[0,1,9],
+        config.populations = data_scraper.fetch_population_projections(
+            regions_df=config.regions,
+            cache_dir=config.cache_dir,
+            force_download=config.params.get('force_download', False),
         )
-        df_exs['REF_DATE'] = df_exs['REF_DATE'].str.removesuffix("-01")
-
-        # Get projected population data from Statcan for M1 scenario
-        df_proj = config._get_statcan_table(
-            table=17100057,
-            save_as='population_projection',
-            filter= lambda df: df.loc[
-                (df['Projection scenario'] == 'Projection scenario M1: medium-growth')
-                & (df['Gender'] == 'Total - gender')
-                & (df['Age group'] == 'All ages')
-            ],
-            usecols=[0,1,3,4,5,12],
-        )
-        df_proj['VALUE'] *= 1000
-
-        # For each region, take historical first, then provincial, then index to Canadian when that runs out
-        for region, row in config.regions.iterrows():
-
-            if not row ['include']: continue
-            
-            # Existing data
-            exs = df_exs.loc[df_exs['GEO'].str.upper() == row['description'].upper()].dropna()
-
-            # Projected provincial data
-            prov = df_proj.loc[(df_proj['GEO'].str.upper() == row['description'].upper()) &
-                            (df_proj['REF_DATE'] > int(exs['REF_DATE'].values[-1]))].dropna()
-            
-            # Index missing provincial data to Canadian projections
-            ca = df_proj.loc[(df_proj['GEO'].str.upper() == 'CANADA') & 
-                            (df_proj['REF_DATE'] >= int(prov['REF_DATE'].values[-1]))].dropna()
-            ca['VALUE'] = ca['VALUE'].iloc[1::] * prov['VALUE'].values[-1] / ca['VALUE'].values[0]
-            ca.dropna(inplace=True)
-
-            # Create dataframe of population for all years
-            data = [*exs['VALUE'].to_list(), *prov['VALUE'].to_list(), *ca['VALUE'].to_list()]
-            pop = pd.DataFrame(index = range(int(exs['REF_DATE'].values[0]), int(ca['REF_DATE'].values[-1]+1)), data = [int(d) for d in data], columns=['population'])
-            pop.index.rename('year', inplace=True)
-
-            # Add to dictionary of regional population projections
-            config.populations[region] = pop
 
 
     
     def _get_gdp_projections(cls) -> pd.DataFrame:
 
-        config.gdp_index = dict()
-
-        file = 'gdp_projections.csv'
-        if os.path.isfile(config.cache_dir + file):
-            df_gdp = pd.read_csv(config.cache_dir + file, index_col=0)
-            print(f"Got {file} from local cache.")
-        else: 
-            df_gdp = pd.read_csv(config.params['gdp_url'])
-            print(f"Downloading {file}...")
-
-            # Filter and rename columns
-            df_gdp = df_gdp.loc[(df_gdp['Variable'] == 'Real Gross Domestic Product ($2012 Millions)') & (df_gdp['Scenario'] == 'Global Net-zero')]
-            df_gdp = df_gdp[['Year','Value']].rename({"Year": "year", "Value": "gdp"}, axis='columns').set_index('year')
-        
-            df_gdp.to_csv(config.cache_dir + file)
-            print(f"Cached {file} locally.")
-
-        # Index GDP to base year GDP by region
-        df_gdp = df_gdp / df_gdp.loc[config.params['base_year']]
-        config.gdp_index = df_gdp
+        config.gdp_index = data_scraper.fetch_gdp_projections(
+            gdp_url=config.params['gdp_url'],
+            base_year=config.params['base_year'],
+            cache_dir=config.cache_dir,
+            force_download=config.params.get('force_download', False),
+        )
 
         
 
-    # Have to put this here or it's awkward circular imports with utils
-    def _get_statcan_table(table, save_as=None, filter:'function'=None, **kwargs):
-
-        if save_as == None: save_as = f"statcan_{table}.csv"
-        if os.path.splitext(save_as)[1] != ".csv": save_as += ".csv"
-
-        if not config.params['force_download'] and os.path.isfile(config.cache_dir + save_as):
-
-            try:
-
-                df = pd.read_csv(config.cache_dir + save_as, index_col=0)
-                
-                print(f"Got Statcan table {table} ({save_as}) from local cache.")
-                return df
-            
-            except Exception as e:
-
-                print(f"Could not get Statcan table {table} from local cache. Trying to download instead.")
-
-        # Make a request from the API for the table, returns response status and url for download
-        url = f"https://www150.statcan.gc.ca/t1/wds/rest/getFullTableDownloadCSV/{table}/en"
-        response = requests.get(url)
-
-        # If successful, download the table
-        if response.ok:
-
-            print(f"Downloading Statcan table {table}...")
-
-            # Download and open the zip file
-            filehandle,_ = urllib.request.urlretrieve(response.json()['object'])
-            zip_file_object = zipfile.ZipFile(filehandle, 'r')
-
-            # Read the table from inside the zip file
-            from_file = zip_file_object.open(f"{table}.csv", "r")
-            df = pd.read_csv(from_file, **kwargs)
-            from_file.close()
-
-            if filter: df = filter(df)
-
-            df.to_csv(config.cache_dir + save_as)
-
-            print(f"Cached Statcan table {table} as {save_as}.")
-            return df
-
-        else:
-
-            print(f"Request for {table} from Statcan failed. Status: {response.status_code}")
-            return None
-    
 
 
     def _get_rninja_api(cls):

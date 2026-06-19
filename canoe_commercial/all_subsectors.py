@@ -27,6 +27,7 @@ import canoe_commercial.comstock_dsd as comstock_dsd
 import canoe_commercial.existing_capacity as existing_capacity
 import canoe_commercial.new_capacity as new_capacity
 import canoe_commercial.utils as utils
+import canoe_commercial.data_scraper as data_scraper
 
 # Shortens lines a bit
 fuel_commodities = config.fuel_commodities
@@ -268,8 +269,12 @@ def aggregate_emissions():
     emis_units = config.params['emission_activity_units']
 
     # Get emissions factors for fuels in ktCO2eq/PJ_in
-    emis_fact = utils.get_data('https://www.epa.gov/system/files/documents/2024-02/ghg-emission-factors-hub-2024.xlsx', skiprows=14, nrows=76, index_col=2)
-    emis_fact = emis_fact[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1::].dropna()
+    emis_fact = data_scraper.fetch_emission_factors(
+        url='https://www.epa.gov/system/files/documents/2024-02/ghg-emission-factors-hub-2024.xlsx',
+        cache_dir=config.cache_dir,
+        force_download=config.params.get('force_download', False),
+    )
+    emis_fact = emis_fact[['CO2 Factor', 'CH4 Factor', 'N2O Factor']].iloc[1:].dropna()
     emis_fact = emis_fact[pd.to_numeric(emis_fact['CO2 Factor'], errors='coerce').notnull()] # Removing NaN rows
     for fact in emis_fact.columns: emis_fact[fact] = emis_fact[fact].astype(float) * conversion_factors['epa_units'][fact.strip(' Factor')] * conversion_factors['gwp'][fact.strip(' Factor')]
     emis_fact[emis_comm] = emis_fact.sum(axis=1)

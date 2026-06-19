@@ -8,8 +8,7 @@ from canoe_commercial.setup import config
 import pandas as pd
 import numpy as np
 import canoe_commercial.weather_mapping as weather_mapping
-import os
-import canoe_commercial.utils as utils
+import canoe_commercial.data_scraper as data_scraper
 
 comstock_map = pd.read_csv(config.input_files + 'comstock_map.csv', index_col=0) # load here so we dont do it once for every region
 
@@ -66,9 +65,9 @@ def get_comstock_consumption(region: str) -> pd.DataFrame:
 
     buildings = config.params['comstock']['building_types']
 
-    df_comstock = get_comstock_table(region, buildings[0])
+    df_comstock = _fetch_comstock_table(region, buildings[0])
     for building in buildings[1:]:
-        df = get_comstock_table(region, building)
+        df = _fetch_comstock_table(region, building)
 
         # Not all comstock buildings have the same columns
         for col in df.columns:
@@ -88,34 +87,13 @@ def get_comstock_consumption(region: str) -> pd.DataFrame:
 
 
 
-def get_comstock_table(region: str, building: str) -> pd.DataFrame:
-
-    state = config.regions.loc[region, 'us_state']
-
-    url = config.params['comstock']['url'].replace('<su>', state.upper()).replace('<sl>', state.lower()).replace('<b>', building)
-    file = url.split('/')[-1]
-
-    # If already cached, grab and return that
-    if os.path.isfile(config.cache_dir + file):
-        df = pd.read_csv(config.cache_dir + file, index_col='timestamp')
-        print(f"Got {file} from local cache.")
-        return df
-    
-    # Otherwise download from Comstock
-    print(f"Downloading {file}...")
-    try:
-        df = pd.read_csv(url, index_col='timestamp')
-    except Exception as e:
-        print(f"Failed to download comstock table from url\n{url}")
-        raise e
-
-    # Handle timezone change and rearrange so hour 0 is 2018-01-01 00:00
-    df = df.iloc[np.arange(-1, len(df)-1)] # starts at 01:00 and ends on 00:00 so roll to 00:00 start
-    df = utils.realign_timezone(df, from_timezone='EST') # Comstock comes in EST
-    df = df.loc[df.index.minute == 0]
-
-    # Cache locally
-    df.to_csv(config.cache_dir + file)
-    print(f"Cached {file} locally.")
-
-    return df
+def _fetch_comstock_table(region: str, building: str) -> pd.DataFrame:
+    """Fetch one Comstock building type table via data_scraper."""
+    return data_scraper.fetch_comstock_table(
+        us_state=config.regions.loc[region, 'us_state'],
+        building=building,
+        url_template=config.params['comstock']['url'],
+        cache_dir=config.cache_dir,
+        timezone=config.params['timezone'],
+        force_download=config.params.get('force_download', False),
+    )
