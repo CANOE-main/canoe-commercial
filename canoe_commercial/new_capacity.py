@@ -209,19 +209,17 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                 conn.executemany(sql, rows)
 
 
-        ## AnnualCapacityFactor
-        acf = df_exs.loc[(end_use, tech_config['fuel']), 'acf']
-        note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
-        ref = config.refs.get('comstock')
-            
-        for period in config.model_periods:
-                
+            ## AnnualCapacityFactor
+            acf = df_exs.loc[(end_use, tech_config['fuel']), 'acf']
+            note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
+            ref = config.refs.get('comstock')
+                    
             sql, rows = LimitAnnualCapacityFactor.bulk_replace_into_sql(
                 [
                     LimitAnnualCapacityFactor(
                         region=region,
-                        vintage=period,
                         tech=tech,
+                        vintage=vint,
                         output_comm=eu_config['comm'],
                         operator='le',
                         factor=acf,

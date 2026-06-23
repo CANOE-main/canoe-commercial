@@ -494,16 +494,16 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
         ref = config.refs.get('comstock')
 
-        for period in config.model_periods:
+        for vint in vints:
 
-            if max(vints) + life <= period: continue # no vintage would live this long
+            if vint + life <= config.model_periods[0]: continue # this vintage never lives
 
             sql, rows = LimitAnnualCapacityFactor.bulk_replace_into_sql(
                 [
                     LimitAnnualCapacityFactor(
                         region=region,
-                        vintage=period,
                         tech=tech,
+                        vintage=vint,
                         output_comm=eu_config['comm'],
                         operator='le',
                         factor=acf,
