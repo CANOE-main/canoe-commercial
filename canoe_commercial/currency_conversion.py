@@ -14,31 +14,31 @@ exchange = pd.read_csv(config.input_files + 'currency_exchange.csv', index_col=0
 inflation = pd.read_csv(config.input_files + 'cad_inflation.csv', index_col=0)
 
 # Currency and currency year for final data, converting to this
-base_curr = config.params['final_currency']
-base_year = config.params['final_currency_year']
+base_curr = config.final_currency
+base_year = config.final_currency_year
 
 # Multiplier for final currency (to normalise if not using CAD2020)
-base_fact = exchange.loc[base_year, base_curr] * inflation.loc[base_year, config.params['inflation_index']]
+base_fact = exchange.loc[base_year, base_curr] * inflation.loc[base_year, config.inflation_index]
 
 
 def conv_curr(
         orig_cost,
-        orig_year: int = config.params['aeo_currency_year'],
-        orig_curr: str = config.params['aeo_currency'],
+        orig_year: int = config.aeo_currency_year,
+        orig_curr: str = config.aeo_currency,
     ):
     """
     Converts a cost from its original currency and year to the base currency and year
 
     params:
     - orig_cost: the original cost as given in the data source
-    - orig_year: the original currency year in the data source. By default, aeo_currency_year from params.yaml
-    - orig_curr: the orignal currency in the data source (USD, EUR, GDP, AUD). By default, aeo_currency from params.yaml
+    - orig_year: the original currency year in the data source. By default, aeo_currency_year from params.toml
+    - orig_curr: the orignal currency in the data source (USD, EUR, GDP, AUD). By default, aeo_currency from params.toml
 
     For example, if the original cost from data is $2500 USD (2010),
     cost = conv_curr(2500, 2010, 'USD')
     """
-    
-    return orig_cost * exchange.loc[orig_year, orig_curr] * inflation.loc[orig_year, config.params['inflation_index']] / base_fact
+
+    return orig_cost * exchange.loc[orig_year, orig_curr] * inflation.loc[orig_year, config.inflation_index] / base_fact
 
 
 def convert_currencies():

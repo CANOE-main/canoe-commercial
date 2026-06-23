@@ -33,18 +33,16 @@ def validate_db_against_config(config, db_conn):
     Validate the canoe-base DB against this module's config before any writes.
     Raises ValueError on missing structure unless validation_behavior='warning'.
     """
-    behavior = config.params.get('validation_behavior', 'error')
+    behavior = config.validation_behavior
 
     check_missing_periods(db_conn, config.model_periods, behavior)
     check_missing_regions(db_conn, config.model_regions, behavior)
 
-    if config.params.get('include_dsd', True):
+    if config.include_dsd:
         check_missing_time_slices(db_conn, config.time, behavior)
 
-    if config.params.get('include_emissions', True):
-        check_emission_commodity(
-            db_conn, config.params['emission_commodity'], behavior
-        )
+    if config.include_emissions:
+        check_emission_commodity(db_conn, config.emission_commodity, behavior)
 
 
 def check_missing_periods(db_conn, model_periods, behavior='error'):

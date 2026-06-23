@@ -63,7 +63,7 @@ def calculate_dsds(region: str):
 
 def get_comstock_consumption(region: str) -> pd.DataFrame:
 
-    buildings = config.params['comstock']['building_types']
+    buildings = config.comstock.building_types
 
     df_comstock = _fetch_comstock_table(region, buildings[0])
     for building in buildings[1:]:
@@ -92,8 +92,8 @@ def _fetch_comstock_table(region: str, building: str) -> pd.DataFrame:
     return data_scraper.fetch_comstock_table(
         us_state=config.regions.loc[region, 'us_state'],
         building=building,
-        url_template=config.params['comstock']['url'],
+        url_template=config.comstock.url,
         cache_dir=config.cache_dir,
-        timezone=config.params['timezone'],
-        force_download=config.params.get('force_download', False),
+        timezone=config.timezone,
+        force_download=config.force_download,
     )

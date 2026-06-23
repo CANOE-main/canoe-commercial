@@ -47,12 +47,9 @@ from canoe_schema.v4_0.models import (
     Technology,
 )
 
-base_year = config.params['base_year']
-aeo_ref = config.params['aeo_reference']
-aeo_year = config.params['aeo_installed_year']
-nrcan_ref = config.params['nrcan_reference']
-comstock_year = config.params['comstock']['data_year']
-comstock_ref = config.params['comstock']['reference']
+base_year = config.base_year
+aeo_year = config.aeo_installed_year
+comstock_year = config.comstock.data_year
 
 
 def aggregate_region(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
@@ -85,7 +82,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
     # Slice up using Statcan data if its an atlantic province
     sec_sph = get_atlantic_fractions(region, sec_sph)
-        
+
     df_sph = pd.DataFrame(data=sec_sph.values, columns=['sec'])
     df_sph['end_use'] = 'space heating'
     df_sph['fuel'] = sec_sph.index
@@ -95,7 +92,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
     # Slice up using Statcan data if its an atlantic province
     sec_spc = get_atlantic_fractions(region, sec_spc)
-    sec_spc = sec_spc.loc[sec_spc/sec_spc.sum() > config.params['sec_tolerance']] # drop tiny energy consumptions
+    sec_spc = sec_spc.loc[sec_spc/sec_spc.sum() > config.sec_tolerance] # drop tiny energy consumptions
 
     df_spc = pd.DataFrame(data=sec_spc.values, columns=['sec'])
     df_spc['end_use'] = 'space cooling'
@@ -121,7 +118,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
     cdm_exs['sec_share'] = cdm_exs['serv_share']
     for end_use in cdm_exs['serv'].unique():
         for fuel in cdm_exs['fuel'].unique():
-        
+
             df = cdm_exs.loc[(cdm_exs['serv'] == end_use) & (cdm_exs['fuel'] == fuel)].copy()
             df['sec_share'] = df['serv_share'] / df['efficiency']
             df['sec_share'] = df['sec_share'] / df['sec_share'].sum()
@@ -134,7 +131,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
     cdm_exs['avg_eff'] = cdm_exs['efficiency'] * cdm_exs['sec_share'] # eff indexed to secondary energy share
     cdm_exs['avg_life'] = (cdm_exs['life'] * cdm_exs['serv_share']).round() # life indexed to output service energy share
     cdm_exs['avg_fixed_cost'] = cdm_exs['maintcst'] * cdm_exs['serv_share'] # fixed cost indexed to output service energy share
-    
+
     cdm_exs = cdm_exs.groupby(['serv','fuel']).sum()
     df_exs = df_exs.drop([euf for euf in df_exs.index if euf not in cdm_exs.index]) # no service share so drop this end-use-fuel combo
     for col in ['avg_eff','avg_life','avg_fixed_cost']:
@@ -145,7 +142,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
     df_exs['dem'] = df_exs.index.map(lambda euf: df_exs.loc[euf, 'sec'] * cdm_exs.loc[euf, 'avg_eff'])
     df_dem = df_exs['dem'].groupby('end_use').sum()
 
-    
+
     ## 5. Calculate normalised hourly demand profile (DSD) by summing all hourly demands from comstock and normalising
     # Already done outside function
 
@@ -164,9 +161,9 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
 
     # If energy is less than threshold, set existing capacity to zero
-    df_exs['cap'] = df_exs['cap'].where(df_exs['dem']/df_exs['dem'].sum() > config.params['sec_tolerance'], 0) # drop tiny energy consumptions
+    df_exs['cap'] = df_exs['cap'].where(df_exs['dem']/df_exs['dem'].sum() > config.sec_tolerance, 0) # drop tiny energy consumptions
 
-    
+
     ## Save calculated existing data to local cache for review
     df_exs.to_csv(config.cache_dir + f"calculated_existing_sphc_data_{region.lower()}.csv")
     print(f"Saved calculated {region} existing space heating and cooling data locally.")
@@ -191,16 +188,13 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
     ##############################################################
     """
 
-    config.refs.add('comstock', comstock_ref)
-    config.refs.add('demand', f"{nrcan_ref}; {aeo_ref}; {config.params['gdp_reference']}")
-    
     for end_use, dem in df_dem.items():
 
         if dem == 0: continue
 
         eu_config = config.end_use_demands.loc[end_use]
         dsd = df_dsd[end_use].to_numpy()
-        
+
         ann_dem = dem * config.gdp_index # annual demand indexed to gdp growth
 
         ## Commodities
@@ -218,9 +212,10 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
 
         ## DemandSpecificDistribution
-        if config.params['include_dsd']:
+        if config.include_dsd:
             data = []
-            ref = config.refs.get('comstock')
+            ref = config.sources['comstock']
+            dq_lf = config.dq_lifetime.as_kwargs()
 
             print(f"Adding DSD for {end_use} demand in {region}...")
 
@@ -232,8 +227,8 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                         data.append([
                             region, period, row['season'], row['tod'], eu_config['comm'], dsd[h],
                             "Comstock hourly consumption for lighting and equipment summed over all building types and normalised",
-                            ref.id,
-                            1, 2, 1, 2, 3,
+                            ref.source_id,
+                            dq_lf['dq_cred'], dq_lf['dq_geog'], dq_lf['dq_struc'], dq_lf['dq_tech'], dq_lf['dq_time'],
                             utils.data_id(region),
                         ])
                     else:
@@ -242,8 +237,8 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                             None, None, None, None, None, None, None,
                             utils.data_id(region),
                         ])
-                
-            
+
+
             dsd_rows = [
                 DemandSpecificDistribution(
                     region=row[0],
@@ -268,13 +263,13 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
 
         ## Demand
-        ref = config.refs.get('demand')
+        ref = config.sources['demand']
 
         for period in config.model_periods:
-            
+
             dem = ann_dem.loc[period].iloc[0]
             note = (f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
-                    f"indexed to projected provincial gdp growth (CER, {config.params['gdp_data_year']})")
+                    f"indexed to projected provincial gdp growth (CER, {config.gdp_data_year})")
 
             sql, rows = Demand.bulk_insert_or_ignore_sql(
                 [
@@ -285,18 +280,14 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                         demand=dem,
                         units=f"({eu_config['dem_unit']})",
                         notes=note,
-                        data_source=ref.id,
-                        dq_cred=1,
-                        dq_geog=2,
-                        dq_struc=2,
-                        dq_tech=2,
-                        dq_time=3,
+                        data_source=ref.source_id,
+                        **config.dq_demands.as_kwargs(),
                         data_id=utils.data_id(region),
                     )
                 ]
             )
             conn.executemany(sql, rows)
-            
+
 
 
     """
@@ -304,9 +295,6 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         Existing technologies
     ##############################################################
     """
-
-    config.refs.add('nrcan_aeo', f"{nrcan_ref}; {aeo_ref}")
-    config.refs.add('nrcan_aeo_comstock', f"{nrcan_ref}; {aeo_ref}; {comstock_ref}")
 
     for tech, tech_config in exs_techs.iterrows():
 
@@ -346,7 +334,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         ## LifetimeTech
         life = round(cdm_exs.loc[(tech_config['end_use'], tech_config['fuel']), 'avg_life'])
         note = f"Average life of installed stock indexed to shares of service demand by end use and fuel (AEO, {aeo_year})"
-        ref = config.refs.get('aeo')
+        ref = config.sources['aeo']
         sql, rows = LifetimeTech.bulk_insert_or_ignore_sql(
             [
                 LifetimeTech(
@@ -354,18 +342,14 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                     tech=tech,
                     lifetime=life,
                     notes=note,
-                    data_source=ref.id,
-                    dq_cred=1,
-                    dq_geog=2,
-                    dq_struc=1,
-                    dq_tech=2,
-                    dq_time=3,
+                    data_source=ref.source_id,
+                    **config.dq_lifetime.as_kwargs(),
                     data_id=utils.data_id(region),
                 )
             ]
         )
         conn.executemany(sql, rows)
-        
+
 
         ## CapacityToActivity
         c2a = 1 # Capacity is in PJ/y and activity is in PJ
@@ -382,7 +366,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
             ]
         )
         conn.executemany(sql, rows)
-        
+
 
         # Spread existing capacity evenly over existing vintages
         vints, weights = utils.stock_vintages(base_year, life)
@@ -401,7 +385,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                     f"Secondary energy consumption shares calculated from fuel share by end use (NRCan, {base_year}) "
                     f"further indexed to service demand shares divided by efficiencies for installed base technologies "
                     f"of the same end use and fuel (AEO, {aeo_year}).")
-            ref = config.refs.get('nrcan_aeo')
+            ref = config.sources['nrcan_aeo']
             sql, rows = Efficiency.bulk_insert_or_ignore_sql(
                 [
                     Efficiency(
@@ -412,25 +396,21 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                         output_comm=eu_config['comm'],
                         efficiency=eff,
                         notes=note,
-                        data_source=ref.id,
-                        dq_cred=1,
-                        dq_geog=2,
-                        dq_struc=3,
-                        dq_tech=2,
-                        dq_time=2,
+                        data_source=ref.source_id,
+                        **config.dq_efficiency.as_kwargs(),
                         data_id=utils.data_id(region),
                     )
                 ]
             )
             conn.executemany(sql, rows)
-            
+
 
             ## ExistingCapacity
             cap = weight * exs_data['cap']
             note = (f"Secondary energy consumption shares calculated from fuel share by end use (NRCan, {base_year}) "
                     f"times average efficiency for installed base technologies (AEO, {aeo_year}) "
                     f"divided by estimated annual capacity factor (NREL, {comstock_year})")
-            ref = config.refs.get('nrcan_aeo_comstock')
+            ref = config.sources['nrcan_aeo_comstock']
             sql, rows = ExistingCapacity.bulk_insert_or_ignore_sql(
                 [
                     ExistingCapacity(
@@ -440,18 +420,14 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                         capacity=cap,
                         units=f"({eu_config['cap_unit']})",
                         notes=note,
-                        data_source=ref.id,
-                        dq_cred=1,
-                        dq_geog=2,
-                        dq_struc=2,
-                        dq_tech=2,
-                        dq_time=1,
+                        data_source=ref.source_id,
+                        **config.dq_existing_capacity.as_kwargs(),
                         data_id=utils.data_id(region),
                     )
                 ]
             )
             conn.executemany(sql, rows)
-            
+
 
             # Indexed by period and vintage
             for period in config.model_periods:
@@ -459,10 +435,10 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                 if vint > period or vint + life <= period: continue
 
                 ## CostFixed
-                cost_fixed = exs_data['avg_fixed_cost'] * config.params['conversion_factors']['cost']['aeo']
+                cost_fixed = exs_data['avg_fixed_cost'] * config.conversion_factors.cost.aeo
                 cost_fixed = conv_curr(cost_fixed)
                 note = f"Average maintenance cost of installed stock indexed to shares of service demand by end use and fuel (AEO, {aeo_year})"
-                ref = config.refs.get('aeo')
+                ref = config.sources['aeo']
                 sql, rows = CostFixed.bulk_insert_or_ignore_sql(
                     [
                         CostFixed(
@@ -473,12 +449,8 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                             cost=cost_fixed,
                             units='M$/PJ',
                             notes=note,
-                            data_source=ref.id,
-                            dq_cred=1,
-                            dq_geog=2,
-                            dq_struc=1,
-                            dq_tech=2,
-                            dq_time=2,
+                            data_source=ref.source_id,
+                            **config.dq_costs.as_kwargs(),
                             data_id=utils.data_id(region),
                         )
                     ]
@@ -489,7 +461,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         ## AnnualCapacityFactor
         acf = exs_data['acf']
         note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
-        ref = config.refs.get('comstock')
+        ref = config.sources['comstock']
 
         for period in config.model_periods:
 
@@ -505,18 +477,14 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
                         operator='le',
                         factor=acf,
                         notes=note,
-                        data_source=ref.id,
-                        dq_cred=1,
-                        dq_geog=2,
-                        dq_struc=5,
-                        dq_tech=2,
-                        dq_time=3,
+                        data_source=ref.source_id,
+                        **config.dq_capacity_factor.as_kwargs(),
                         data_id=utils.data_id(region),
                     )
                 ], include_nulls=True
             )
             conn.executemany(sql, rows)
-            
+
 
     conn.commit()
     conn.close()
@@ -530,7 +498,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     eu_config: pd.Series = config.end_use_demands.loc['other']
     tech_config: pd.Series = config.new_techs.loc[config.new_techs['end_use'] == 'other'].iloc[0]
     dsd = df_dsd['other'].to_numpy() # faster
-    elc_fact = config.params['other_electrification_factor']
+    elc_fact = config.other_electrification_factor
 
     if not tech_config['include_new']: return # maybe someone will want to skip all this
 
@@ -562,7 +530,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     for fuel in sec.index.difference(sec_sphc.index): sec_sphc[fuel] = 0
 
     sec_oth = sec - sec_sphc
-    sec_oth = sec_oth.loc[sec_oth/sec_oth.sum() > config.params['sec_tolerance']] # drop tiny energy consumptions
+    sec_oth = sec_oth.loc[sec_oth/sec_oth.sum() > config.sec_tolerance] # drop tiny energy consumptions
     # Demand is sum of secondary energies minus those from space heating and cooling (already accounted for)
     ann_dem = sec_oth.sum() * config.gdp_index # annual demand indexed to gdp growth
 
@@ -575,7 +543,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
         Add to database
     ##############################################################
     """
-    
+
     conn = sqlite3.connect(config.database_file)
     curs = conn.cursor()
 
@@ -610,8 +578,6 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     conn.executemany(sql, rows)
 
 
-    config.refs.add('nrcan_cef', f"{nrcan_ref}; {config.params['cef_reference']}")
-
     # Flows
     for fuel in sec_oth.index:
 
@@ -634,9 +600,10 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
             ]
         )
         conn.executemany(sql, rows)
-        
+
 
         ## TechInputSplit
+        ref = config.sources['nrcan_cef']
         for period in config.model_periods:
 
             tis = ti_splits[fuel]
@@ -648,8 +615,7 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
             tis = tis + (target - tis) * lin_f # elc -> 1
 
-            note = f"Secondary energy consumption by fuel (NRCan, {base_year}) minus space heating and cooling. {config.params['cef_note']}"
-            ref = config.refs.get('nrcan_cef')
+            note = f"Secondary energy consumption by fuel (NRCan, {base_year}) minus space heating and cooling. {config.cef_note}"
             sql, rows = LimitTechInputSplitAnnual.bulk_insert_or_ignore_sql(
                 [
                     LimitTechInputSplitAnnual(
@@ -660,12 +626,8 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
                         operator='le',
                         proportion=tis,
                         notes=note,
-                        data_source=ref.id,
-                        dq_cred=1,
-                        dq_geog=1,
-                        dq_struc=5,
-                        dq_tech=1,
-                        dq_time=1,
+                        data_source=ref.source_id,
+                        **config.dq_fuel_splits.as_kwargs(),
                         data_id=utils.data_id(region),
                     )
                 ]
@@ -674,9 +636,10 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
 
     ## DemandSpecificDistribution
-    if config.params['include_dsd']:
+    if config.include_dsd:
         data = []
-        ref = config.refs.get('comstock')
+        ref = config.sources['comstock']
+        dq_lf = config.dq_lifetime.as_kwargs()
 
         print(f"Adding DSD for other demand in {region}...")
 
@@ -688,8 +651,8 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
                     data.append([
                         region, period, row['season'], row['tod'], eu_config['comm'], dsd[h],
                         "Comstock hourly consumption for lighting and equipment summed over all building types and normalised",
-                        ref.id,
-                        1, 2, 1, 2, 3,
+                        ref.source_id,
+                        dq_lf['dq_cred'], dq_lf['dq_geog'], dq_lf['dq_struc'], dq_lf['dq_tech'], dq_lf['dq_time'],
                         utils.data_id(region),
                     ])
                 else:
@@ -698,8 +661,8 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
                         None, None, None, None, None, None, None,
                         utils.data_id(region),
                     ])
-            
-        
+
+
         dsd_rows = [
             DemandSpecificDistribution(
                 region=row[0],
@@ -724,11 +687,11 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
 
 
     ## Demand
-    ref = config.refs.add('nrcan_gdp', f"{nrcan_ref}; {config.params['gdp_reference']}")
+    ref = config.sources['nrcan_gdp']
     for period in config.model_periods:
-        
+
         dem = ann_dem.loc[period].iloc[0]
-        
+
         dem = ann_dem.loc[period].iloc[0]
         note = f"Annual secondary energy consumption summed over all fuels minus space heating and cooling (NRCan, {base_year})"
 
@@ -741,12 +704,8 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
                     demand=dem,
                     units=f"({eu_config['dem_unit']})",
                     notes=note,
-                    data_source=ref.id,
-                    dq_cred=1,
-                    dq_geog=2,
-                    dq_struc=2,
-                    dq_tech=2,
-                    dq_time=3,
+                    data_source=ref.source_id,
+                    **config.dq_demands.as_kwargs(),
                     data_id=utils.data_id(region),
                 )
             ]
@@ -773,7 +732,7 @@ def get_atlantic_fractions(region: str, sec: pd.Series) -> pd.Series:
         'statcan_atlantic_energy',
         usecols = ['REF_DATE','GEO','Fuel type','Supply and demand characteristics','VALUE'],
         filter = lambda df: df.loc[
-            (df['REF_DATE'] == config.params['base_year'])
+            (df['REF_DATE'] == config.base_year)
             & (df['Fuel type'].isin(config.fuel_commodities['statcan_fuel']))
             & (df['Supply and demand characteristics'] == 'Commercial and other institutional')
             & (df['GEO'].str.lower().isin(config.regions['description'].loc[config.regions['atlantic']]))

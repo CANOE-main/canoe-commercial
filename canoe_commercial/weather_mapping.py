@@ -21,7 +21,7 @@ df_ca_hum: pd.DataFrame = None
 # Downloads temperature and humidity data from Renewables Ninja, but only caches weather-year data
 def get_weather_data(url: str) -> pd.DataFrame:
 
-    file_name = os.path.splitext(url.split("/")[-1].split("\\")[-1])[0] + f"_{config.params['weather_year']}.csv"
+    file_name = os.path.splitext(url.split("/")[-1].split("\\")[-1])[0] + f"_{config.weather_year}.csv"
 
     # Get from local cache if it exists
     if os.path.isfile(config.cache_dir + file_name):
@@ -49,7 +49,7 @@ def get_weather_data(url: str) -> pd.DataFrame:
         df.index = pd.to_datetime(df.index)
 
         # Filter to weather year data
-        df: pd.DataFrame = df.loc[df.index.year == config.params['weather_year']]
+        df: pd.DataFrame = df.loc[df.index.year == config.weather_year]
 
         # Cache dataframe locally as a csv
         df.to_csv(config.cache_dir + file_name)
@@ -68,10 +68,10 @@ def initialise_weather_data():
     if initialised: return
 
     # Get hourly weather data from Renewables Ninja
-    df_us_tmp = get_weather_data(config.params['weather']['us_temperature_url'])
-    df_us_hum = get_weather_data(config.params['weather']['us_humidity_url'])
-    df_ca_tmp = get_weather_data(config.params['weather']['ca_temperature_url'])
-    df_ca_hum = get_weather_data(config.params['weather']['ca_humidity_url'])
+    df_us_tmp = get_weather_data(config.weather.us_temperature_url)
+    df_us_hum = get_weather_data(config.weather.us_humidity_url)
+    df_ca_tmp = get_weather_data(config.weather.ca_temperature_url)
+    df_ca_hum = get_weather_data(config.weather.ca_humidity_url)
 
     initialised = True
 
@@ -80,13 +80,13 @@ def initialise_weather_data():
 def map_data(region: str, us_data: np.ndarray) -> tuple[pd.Series, np.ndarray]:
 
     reg_config = config.regions.loc[region]
-    map_file = f"weather_map_{reg_config['us_state']}-{region}_{str(config.params['weather_year'])}_{config.params['timezone']}.npz"
-    
+    map_file = f"weather_map_{reg_config['us_state']}-{region}_{str(config.weather_year)}_{config.timezone}.npz"
+
     # If the mapper already exists then just use it
     # Already loaded
     if region in weather_maps.keys(): return apply_map(region, us_data)
     # Load from local cache
-    elif not config.params['force_generate_weather_maps'] and os.path.isfile(config.cache_dir + map_file):
+    elif not config.force_generate_weather_maps and os.path.isfile(config.cache_dir + map_file):
         print(f"Loading weather map {map_file} from local cache...")
         with open(config.cache_dir + map_file, 'rb') as file:
             weather_maps[region] = np.load(file)['arr_0']
@@ -168,8 +168,8 @@ def apply_map(region: str, us_data: np.ndarray) -> tuple[pd.Series, np.ndarray]:
 def get_weekly_variation(data: np.ndarray):
 
     # Then get the day of week of Jan 1 for each year. Monday is 0, Sunday 6
-    jan_1_us = datetime.weekday(datetime.fromisoformat(f"{config.params['weather_year']}-01-01"))
-    jan_1_ca = datetime.weekday(datetime.fromisoformat(f"{config.params['weather_year']}-01-01"))
+    jan_1_us = datetime.weekday(datetime.fromisoformat(f"{config.weather_year}-01-01"))
+    jan_1_ca = datetime.weekday(datetime.fromisoformat(f"{config.weather_year}-01-01"))
 
     # Get multipliers for time of the week, hourly -> this doesnt work as temperature effects are double counted
     daily_avg = np.array([np.mean(data[24*d:24*d+23]) for d in range(364)])

@@ -28,12 +28,12 @@ def build_database():
     # Convert data costs to final currency
     # currency_conversion.convert_currencies()
 
-    if config.params['clone_to_xlsx']: utils.database_converter().clone_sqlite_to_excel()
+    if config.clone_to_xlsx: utils.database_converter().clone_sqlite_to_excel()
 
     print(f"Commercial sector aggregated into {os.path.basename(config.database_file)}\n")
 
     # Show any plots that have been made
-    if config.params['show_plots']: pp.show()
+    if config.show_plots: pp.show()
 
 
 

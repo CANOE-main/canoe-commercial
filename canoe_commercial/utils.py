@@ -17,7 +17,7 @@ import canoe_commercial.data_scraper as data_scraper
 # Gets a formatted dataset ID
 def data_id(text: str = ''):
 
-    id = f"{config.params['data_id_prefix']}{text}{config.params['data_version']}"
+    id = f"{config.data_id_prefix}{text}{config.data_version}"
     config.data_ids.add(id)
     return id
 
@@ -28,12 +28,12 @@ def get_compr_db(region, table_number, first_row=0, last_row=None) -> pd.DataFra
     return data_scraper.fetch_nrcan_ceud_table(
         region_nrcan_id=config.regions.loc[region, 'nrcan_id'],
         table_number=table_number,
-        nrcan_url_template=config.params['nrcan_url'],
-        base_year=config.params['base_year'],
+        nrcan_url_template=config.nrcan_url,
+        base_year=config.base_year,
         cache_dir=config.cache_dir,
         first_row=first_row,
         last_row=last_row,
-        force_download=config.params.get('force_download', False),
+        force_download=config.force_download,
     )
 
 
@@ -44,7 +44,7 @@ def get_statcan_table(table, save_as=None, filter=None, **kwargs):
         table_id=table,
         cache_dir=config.cache_dir,
         save_as=save_as,
-        force_download=config.params.get('force_download', False),
+        force_download=config.force_download,
         filter=filter,
         **kwargs,
     )
@@ -69,7 +69,9 @@ def dq_time(from_year, to_year):
 
 
 
-def stock_vintages(stock_year, lifetime, vint_interval=config.params['period_step']) -> tuple[list, list]:
+def stock_vintages(stock_year, lifetime, vint_interval=None) -> tuple[list, list]:
+    if vint_interval is None:
+        vint_interval = config.period_step
 
     vint_last = stock_year - stock_year % vint_interval # first stepped back vint
 
@@ -105,7 +107,10 @@ class database_converter:
 
         return cls._instance
 
-    def clone_sqlite_to_excel(self, from_sqlite_file: str = config.database_file, to_excel_file: str = config.excel_target_file, excel_template_file: str = config.excel_template_file):
+    def clone_sqlite_to_excel(self, from_sqlite_file: str = None, to_excel_file: str = None, excel_template_file: str = None):
+        from_sqlite_file = from_sqlite_file or config.database_file
+        to_excel_file = to_excel_file or config.excel_target_file
+        excel_template_file = excel_template_file or config.excel_template_file
 
         print(f"\nCloning {os.path.basename(from_sqlite_file)} into target {os.path.basename(to_excel_file)}."\
               "\nThis may take a minute...")

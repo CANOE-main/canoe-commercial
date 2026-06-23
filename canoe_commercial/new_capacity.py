@@ -23,10 +23,9 @@ from canoe_schema.v4_0.models import (
 def aggregate_region(region: str, df_exs: pd.DataFrame):
 
     conn = sqlite3.connect(config.database_file)
-    curs = conn.cursor()
 
-    aeo_year = config.params['aeo_installed_year']
-    comstock_year = config.params['comstock']['data_year']
+    aeo_year = config.aeo_installed_year
+    comstock_year = config.comstock.data_year
 
 
     """
@@ -48,7 +47,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
 
         if end_use != 'space heating' and end_use != 'space cooling': continue
         if (end_use, tech_config['fuel']) not in df_exs.index: continue # insufficient data for this technology
-        
+
         # Prepare some stuff
         fuel_config = config.fuel_commodities.loc[tech_config['fuel']]
         eu_config = config.end_use_demands.loc[end_use]
@@ -81,7 +80,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
         ## LifetimeTech
         life = round(aeo_data['life'])
         note = f"Rounded life from AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
-        ref = config.refs.get('aeo')
+        ref = config.sources['aeo']
         sql, rows = LifetimeTech.bulk_insert_or_ignore_sql(
             [
                 LifetimeTech(
@@ -89,18 +88,14 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                     tech=tech,
                     lifetime=life,
                     notes=note,
-                    data_source=ref.id,
-                    dq_cred=1,
-                    dq_geog=2,
-                    dq_struc=1,
-                    dq_tech=2,
-                    dq_time=3,
+                    data_source=ref.source_id,
+                    **config.dq_lifetime.as_kwargs(),
                     data_id=utils.data_id(region),
                 )
             ]
         )
         conn.executemany(sql, rows)
-        
+
 
         ## CapacityToActivity
         c2a = 1 # Capacity is in PJ/y and activity is in PJ
@@ -125,7 +120,7 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
             ## Efficiency
             eff = aeo_data['efficiency']
             note = f"From AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
-            ref = config.refs.get('aeo')
+            ref = config.sources['aeo']
             sql, rows = Efficiency.bulk_insert_or_ignore_sql(
                 [
                     Efficiency(
@@ -136,24 +131,20 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                         output_comm=eu_config['comm'],
                         efficiency=eff,
                         notes=note,
-                        data_source=ref.id,
-                        dq_cred=1,
-                        dq_geog=2,
-                        dq_struc=3,
-                        dq_tech=2,
-                        dq_time=2,
+                        data_source=ref.source_id,
+                        **config.dq_efficiency.as_kwargs(),
                         data_id=utils.data_id(region),
                     )
                 ]
             )
             conn.executemany(sql, rows)
-            
+
 
             ## CostInvest
-            cost_invest = aeo_data['capcst'] * config.params['conversion_factors']['cost']['aeo']
+            cost_invest = aeo_data['capcst'] * config.conversion_factors.cost.aeo
             cost_invest = conv_curr(cost_invest)
             note = f"Capcst from AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
-            ref = config.refs.get('aeo')
+            ref = config.sources['aeo']
             sql, rows = CostInvest.bulk_insert_or_ignore_sql(
                 [
                     CostInvest(
@@ -163,18 +154,14 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                         cost=cost_invest,
                         units='M$/PJ/y',
                         notes=note,
-                        data_source=ref.id,
-                        dq_cred=1,
-                        dq_geog=2,
-                        dq_struc=1,
-                        dq_tech=2,
-                        dq_time=2,
+                        data_source=ref.source_id,
+                        **config.dq_costs.as_kwargs(),
                         data_id=utils.data_id(region),
                     )
                 ]
             )
             conn.executemany(sql, rows)
-            
+
 
             # Indexed by period and vintage
             for period in config.model_periods:
@@ -182,10 +169,10 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                 if vint > period or vint + life <= period: continue
 
                 ## CostFixed
-                cost_fixed = aeo_data['maintcst'] * config.params['conversion_factors']['cost']['aeo']
+                cost_fixed = aeo_data['maintcst'] * config.conversion_factors.cost.aeo
                 cost_fixed = conv_curr(cost_fixed)
                 note = f"Maintcst from AEO CDM ktekx technology menu for technology {tech_config['aeo_tech']} (AEO, {aeo_year})"
-                ref = config.refs.get('aeo')
+                ref = config.sources['aeo']
                 sql, rows = CostFixed.bulk_insert_or_ignore_sql(
                     [
                         CostFixed(
@@ -196,12 +183,8 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                             cost=cost_fixed,
                             units='M$/PJ',
                             notes=note,
-                            data_source=ref.id,
-                            dq_cred=1,
-                            dq_geog=2,
-                            dq_struc=1,
-                            dq_tech=2,
-                            dq_time=2,
+                            data_source=ref.source_id,
+                            **config.dq_costs.as_kwargs(),
                             data_id=utils.data_id(region),
                         )
                     ]
@@ -212,10 +195,10 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
         ## AnnualCapacityFactor
         acf = df_exs.loc[(end_use, tech_config['fuel']), 'acf']
         note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
-        ref = config.refs.get('comstock')
-            
+        ref = config.sources['comstock']
+
         for period in config.model_periods:
-                
+
             sql, rows = LimitAnnualCapacityFactor.bulk_insert_or_ignore_sql(
                 [
                     LimitAnnualCapacityFactor(
@@ -226,18 +209,14 @@ def aggregate_region(region: str, df_exs: pd.DataFrame):
                         operator='le',
                         factor=acf,
                         notes=note,
-                        data_source=ref.id,
-                        dq_cred=1,
-                        dq_geog=2,
-                        dq_struc=5,
-                        dq_tech=2,
-                        dq_time=3,
+                        data_source=ref.source_id,
+                        **config.dq_capacity_factor.as_kwargs(),
                         data_id=utils.data_id(region),
                     )
                 ]
             )
             conn.executemany(sql, rows)
-            
-    
+
+
     conn.commit()
     conn.close()
