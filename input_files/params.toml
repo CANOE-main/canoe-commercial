@@ -6,7 +6,7 @@ sector_longname = "commercial"
 data_id_prefix = "COMHR"
 data_version = "001"
 db_dir = "."
-sqlite_database = "commercial.sqlite"
+sqlite_database = "canoe.sqlite"
 excel_template = "Template spreadsheet (make a copy).xlsx"
 excel_output = "commercial.xlsx"
 

@@ -153,7 +153,7 @@ def fetch_nrcan_ceud_table(
     if df is None:
         return None
 
-    df = df.iloc[first_row:] if last_row is None else df.iloc[first_row:last_row]
+    df = df.iloc[first_row:] if last_row is None else df.iloc[first_row:last_row + 1]
     df = df.drop("Unnamed: 0", axis=1, errors="ignore").set_index("Unnamed: 1").dropna()
     df.index.name = None
     df.index = [_clean_row_label(str(idx)) for idx in df.index]

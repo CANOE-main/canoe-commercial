@@ -63,11 +63,16 @@ def aggregate_region(
 
 
         ## Technologies
+        tech_end_uses = cfg.new_techs.loc[[tech], 'end_use'].tolist()
+        if 'space heating' in tech_end_uses and 'space cooling' in tech_end_uses:
+            tech_eu_label = 'space heating/cooling'
+        else:
+            tech_eu_label = end_use
         sql, rows = Technology.bulk_insert_or_ignore_sql(
             [
                 Technology(
                     tech=tech, flag='p', sector='commercial', annual=1,
-                    description=f"{end_use} {tech_config['description']}",
+                    description=f"{tech_eu_label} {tech_config['description']}",
                     data_id=cfg.data_id(),
                 )
             ]
