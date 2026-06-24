@@ -193,6 +193,11 @@ class CANOECommercialConfig(BaseModel):
     def excel_target_file(self) -> str:
         return str(Path(self.db_dir) / self.excel_output)
 
+    def data_id(self, text: str = '') -> str:
+        id = f"{self.data_id_prefix}{text}{self.data_version}"
+        self.data_ids.add(id)
+        return id
+
     @classmethod
     def validate_from_toml(cls, toml_dir: str = "input_files") -> "CANOECommercialConfig":
         path = Path(toml_dir) / "params.toml"
