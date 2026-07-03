@@ -39,7 +39,7 @@ All parameters are in [`input_files/params.toml`](input_files/params.toml). Key 
 | `clone_to_xlsx` | `false` | Copy database to Excel after run |
 | `validation_behavior` | `"error"` | `"error"` or `"warning"` for pre-run checks |
 
-See [`SOURCES.md`](SOURCES.md) for details on all external data sources referenced by the model.
+See [`SOURCES.md`](development_docs/SOURCES.md) for details on all external data sources referenced by the model.
 
 ### 3. Running the Aggregation
 
