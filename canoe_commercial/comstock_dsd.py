@@ -55,6 +55,7 @@ def calculate_dsds(region: str, cfg: "CANOECommercialConfig") -> pd.DataFrame:
 
         axs[p].set_title(end_use)
         axs[p].plot(range(len(df_dsd[end_use])), df_dsd[end_use])
+        axs[p].twinx().plot(range(0,8736,52), tow, 'r-') # time-of-week variation overlaid
         p += 1
 
     return df_dsd

@@ -4,6 +4,7 @@ Written by Ian David Elder for the CANOE model
 """
 
 import os
+import re
 import sqlite3
 
 from matplotlib import pyplot as pp
@@ -75,8 +76,24 @@ def build_database() -> None:
     print(f"Commercial sector aggregated into {os.path.basename(cfg.database_file)}\n")
 
     if cfg.show_plots:
-        pp.show()
+        save_plots()
 
+
+def save_plots(output_dir='output_plots'):
+    os.makedirs(output_dir, exist_ok=True)
+    print("Finished and saving plots.")
+    for fig_num in pp.get_fignums():
+        fig = pp.figure(fig_num)
+        # Try suptitle first, then first axes title, then fall back to figure number
+        title = fig.get_suptitle()
+        if not title and fig.axes:
+            title = fig.axes[0].get_title()
+        filename = title if title else f"figure_{fig_num}"
+        # Sanitize filename: replace characters that are invalid in Windows filenames
+        filename = re.sub(r'[\\/:*?"<>|\x00-\x1f .,]', '_', filename)
+        filepath = os.path.join(output_dir, f"{filename}.pdf")
+        fig.savefig(filepath, bbox_inches='tight')
+        print(f"Saved {filepath}")
 
 if __name__ == "__main__":
 

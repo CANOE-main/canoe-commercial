@@ -69,9 +69,26 @@ def dq_time(from_year, to_year):
 
 
 
-def stock_vintages(stock_year, lifetime, vint_interval=None) -> tuple[list, list]:
+def data_year(period_or_vintage: int) -> int:
+    """Returns the year to take data from for a given period/vintage"""
+    if period_or_vintage < config.model_periods[0]:
+        # Existing vintages use same-year data
+        return period_or_vintage
+    else:
+        # New vintages take period-end data
+        return period_or_vintage + config.params['period_step']
+
+
+
+def stock_vintages(
+        lifetime,
+        vint_interval=None,
+        stock_year=None,
+    ) -> tuple[list, list]:
     if vint_interval is None:
         vint_interval = config.period_step
+    if stock_year is None:
+        stock_year = config.model_periods[0]
 
     vint_last = stock_year - stock_year % vint_interval # first stepped back vint
 

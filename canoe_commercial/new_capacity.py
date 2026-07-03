@@ -173,17 +173,15 @@ def aggregate_region(
                 db_conn.executemany(sql, rows)
 
 
-        ## AnnualCapacityFactor
-        acf = df_exs.loc[(end_use, tech_config['fuel']), 'acf']
-        note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
-        ref = cfg.sources['comstock']
-
-        for period in cfg.model_periods:
-
-            sql, rows = LimitAnnualCapacityFactor.bulk_insert_or_ignore_sql(
+            ## AnnualCapacityFactor
+            acf = df_exs.loc[(end_use, tech_config['fuel']), 'acf']
+            note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
+            ref = cfg.sources['comstock']
+                    
+            sql, rows = LimitAnnualCapacityFactor.bulk_replace_into_sql(
                 [
                     LimitAnnualCapacityFactor(
-                        region=region, vintage=period, tech_or_group=tech,
+                        region=region, vintage=vint, tech_or_group=tech,
                         output_comm=eu_config['comm'], operator='le', factor=acf,
                         notes=note, data_source=ref.source_id,
                         **cfg.dq_capacity_factor.as_kwargs(),

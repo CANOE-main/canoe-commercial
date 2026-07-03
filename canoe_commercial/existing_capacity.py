@@ -286,12 +286,10 @@ def aggregate_existing_sphc(
         ref = cfg.sources['demand']
 
         for period in cfg.model_periods:
-
-            dem_val = ann_dem.loc[period].iloc[0]
-            note = (
-                f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
-                f"indexed to projected provincial gdp growth (CER, {cfg.gdp_data_year})"
-            )
+            yr = utils.data_year(period)
+            dem_val = ann_dem.loc[yr].iloc[0]
+            note = (f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
+                    f"indexed to projected provincial gdp growth by {yr} (CER, {cfg.gdp_data_year})")
 
             sql, rows = Demand.bulk_insert_or_ignore_sql(
                 [
@@ -372,7 +370,7 @@ def aggregate_existing_sphc(
 
 
         # Spread existing capacity evenly over existing vintages
-        vints, weights = utils.stock_vintages(base_year, life, vint_interval=cfg.period_step)
+        vints, weights = utils.stock_vintages(life)
 
         for v in range(len(vints)):
 
@@ -457,15 +455,14 @@ def aggregate_existing_sphc(
         note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
         ref = cfg.sources['comstock']
 
-        for period in cfg.model_periods:
+        for vint in vints:
 
-            if max(vints) + life <= period:
-                continue
+            if vint + life <= cfg.model_periods[0]: continue # this vintage never lives
 
             sql, rows = LimitAnnualCapacityFactor.bulk_insert_or_ignore_sql(
                 [
                     LimitAnnualCapacityFactor(
-                        region=region, vintage=period, tech_or_group=tech,
+                        region=region, vintage=vint, tech_or_group=tech,
                         output_comm=eu_config['comm'], operator='le', factor=acf,
                         notes=note, data_source=ref.source_id,
                         **cfg.dq_capacity_factor.as_kwargs(),
@@ -595,13 +592,13 @@ def aggregate_other(
         ## TechInputSplit
         ref = cfg.sources['nrcan_cef']
         for period in cfg.model_periods:
-
+            yr = utils.data_year(period) # year is end of period not beginning
             tis = ti_splits[fuel]
-            lin_f = (period - base_year) / (cfg.model_periods[-1] - base_year)
-            if fuel == 'electricity':
-                target = elc_fact + tis * (1 - elc_fact)
-            else:
-                target = tis * (1 - elc_fact)
+
+            # Linear interpolation towards reducing non-elc fuels by electrification factor
+            lin_f = (yr - base_year)/(utils.data_year(cfg.model_periods[-1]) - base_year)
+            if fuel == 'electricity': target = elc_fact + tis * ( 1 - elc_fact ) # elc increases
+            else: target = tis * (1 - elc_fact) # all others decrease by elc_fact
 
             tis = tis + (target - tis) * lin_f
 
@@ -662,11 +659,16 @@ def aggregate_other(
     ## Demand
     ref = cfg.sources['nrcan_gdp']
     for period in cfg.model_periods:
+        
+        yr = utils.data_year(period)
+        dem_val = ann_dem.loc[yr].iloc[0]
+        note = (
+            "Annual secondary energy consumption summed over all "
+            f"fuels minus space heating and cooling (NRCan, {base_year}) "
+            f"indexed to projected provincial gdp growth by {yr} (CER, {cfg.gdp_data_year})"
+        )
 
-        dem_val = ann_dem.loc[period].iloc[0]
-        note = f"Annual secondary energy consumption summed over all fuels minus space heating and cooling (NRCan, {base_year})"
-
-        sql, rows = Demand.bulk_insert_or_ignore_sql(
+        sql, rows = Demand.bulk_replace_into_sql(
             [
                 Demand(
                     region=region, period=period, commodity=eu_config['comm'],
