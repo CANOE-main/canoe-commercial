@@ -6,35 +6,76 @@ Written by Ian David Elder for the CANOE model
 import os
 import re
 import sqlite3
+
 from matplotlib import pyplot as pp
 
-
+import canoe_commercial.comstock_dsd as comstock_dsd
+import canoe_commercial.data_scraper as data_scraper
+import canoe_commercial.emission_activity as emission_activity
+import canoe_commercial.existing_capacity as existing_capacity
+import canoe_commercial.new_capacity as new_capacity
+import canoe_commercial.post_processing as post_processing
+import canoe_commercial.techcom as techcom
 import canoe_commercial.utils as utils
-import canoe_commercial.all_subsectors as all_subsectors
-import canoe_commercial.setup as setup
-from canoe_commercial.setup import config
+import canoe_commercial.validation as validation
+from canoe_commercial.setup import CANOECommercialConfig
 
 
+def build_database() -> None:
 
-def build_database():
+    cfg = CANOECommercialConfig.validate_from_toml("input_files")
+    db_conn = sqlite3.connect(cfg.database_file)
 
-    print(f"Aggregating commercial sector into {os.path.basename(config.database_file)}...\n")
+    print(f"Aggregating commercial sector into {os.path.basename(cfg.database_file)}...\n")
 
-    setup.instantiate_database()
+    # Step 0: Validate canoe-base DB structure against module config
+    validation.validate_db_against_config(cfg, db_conn)
 
-    all_subsectors.aggregate()
+    # Step 1: Data is already loaded onto cfg by validate_from_toml → _load_data()
+    aeo_data = cfg.aeo_cdm
+    gdp_index = cfg.gdp_index
 
-    # Convert data costs to final currency
-    # currency_conversion.convert_currencies()
+    emis_factors = None
+    if cfg.include_emissions:
+        raw_emis = data_scraper.fetch_emission_factors(
+            url=cfg.epa_url,
+            cache_dir=cfg.cache_dir,
+            force_download=cfg.force_download,
+        )
+        emis_factors = emission_activity.prepare_emission_factors(raw_emis, cfg)
 
-    if config.params['clone_to_xlsx']: utils.database_converter().clone_sqlite_to_excel()
+    # Step 2: Write module-specific commodity rows
+    techcom.write_commodities(cfg, db_conn)
 
-    #prep_high_res_testing()
+    # Step 3: Per-region subsector processing
+    for region in cfg.province_list:
 
-    print(f"Commercial sector aggregated into {os.path.basename(config.database_file)}\n")
+        print(f"Aggregating {region}...\n")
 
-    # Show any plots that have been made
-    if config.params['show_plots']:
+        df_dsd = comstock_dsd.calculate_dsds(region, cfg)
+        df_exs = existing_capacity.aggregate_region(region, df_dsd, aeo_data, gdp_index, cfg, db_conn)
+        new_capacity.aggregate_region(region, df_exs, aeo_data, cfg, db_conn)
+
+        if cfg.include_emissions:
+            emission_activity.aggregate_region(region, emis_factors, cfg, db_conn)
+
+        print(f"Aggregated {region}.\n")
+
+    # Step 4: Register data sources and datasets
+    post_processing.write_data_registry(cfg, db_conn)
+
+    db_conn.close()
+
+    if cfg.clone_to_xlsx:
+        utils.database_converter().clone_sqlite_to_excel(
+            from_sqlite_file=cfg.database_file,
+            to_excel_file=cfg.excel_target_file,
+            excel_template_file=cfg.excel_template_file,
+        )
+
+    print(f"Commercial sector aggregated into {os.path.basename(cfg.database_file)}\n")
+
+    if cfg.show_plots:
         save_plots()
 
 
@@ -54,105 +95,6 @@ def save_plots(output_dir='output_plots'):
         fig.savefig(filepath, bbox_inches='tight')
         print(f"Saved {filepath}")
 
-
-
-"""
-##############################################################
-    The following is temporary for buildings sector testing
-##############################################################
-"""
-
-def prep_high_res_testing():
-
-    conn = sqlite3.connect(config.database_file)
-    curs = conn.cursor()
-    
-    fuel_costs = {
-        "NG": 8.847,
-        "OIL": 25.163,
-        "ELC": 31.944,
-    }
-
-    base_emis = {
-        "ON": 16000,
-        "AB": 8000,
-        "BC": 3000,
-        "MB": 1600,
-        "SK": 1700,
-        "QC": 4200,
-        "NS": 1300
-    }
-
-    emis = {
-        2021: 1.00,
-        2025: 0.90,
-        2030: 0.80,
-        2035: 0.70,
-        2040: 0.60,
-        2045: 0.50,
-        2050: 0.40
-    }
-                
-    rep_days = [
-        'D006', # Coldest day ON 2018
-        'D035',
-        'D070',
-        'D105',
-        'D140',
-        'D186' # Hottest day ON 2018
-    ]
-
-    seas_tables = [
-        'DemandSpecificDistribution'
-    ]
-
-    # Delete all days but rep days above
-    curs.execute(f"DELETE FROM time_season")
-    [curs.execute(f"INSERT OR IGNORE INTO time_season(t_season) VALUES('{day}')") for day in rep_days]
-
-    for table in seas_tables:
-        curs.execute(f"DELETE FROM {table} WHERE season_name NOT IN (SELECT t_season from time_season)")
-
-    curs.execute(f"DELETE FROM SegFrac")
-    for day in rep_days:
-        for h in range(24):
-            curs.execute(f"""REPLACE INTO SegFrac(season_name, time_of_day_name, segfrac)
-                        VALUES('{day}', '{config.time.loc[h, 'time_of_day']}', {1/(24*6)})""")
-            
-    # Renormalise dsd
-    for end_use in config.end_use_demands['comm']:
-        for region in config.model_regions:
-            total_dsd = sum([dsd[0] for dsd in curs.execute(f"""SELECT dsd FROM DemandSpecificDistribution
-                                                            WHERE demand_name == '{end_use}' AND regions == '{region}'""").fetchall()])
-            curs.execute(f"""UPDATE DemandSpecificDistribution
-                        SET dsd = dsd / {total_dsd}
-                        WHERE demand_name == '{end_use}' and regions = '{region}'""")
-
-    # Add fuel imports and costs
-    for fuel, cost in fuel_costs.items():
-        for region in config.model_regions:
-            for period in config.model_periods:
-                curs.execute(f"""REPLACE INTO
-                            CostVariable(regions, periods, tech, vintage, cost_variable, cost_variable_units, data_cost_year, data_curr, data_flags)
-                            VALUES('{region}', {period}, 'C_IMP_{fuel}', {config.model_periods[0]}, {cost}, 'TEST VAL M$/PJ', 2020, 'CAD', 'TEST')""")
-
-    # Emissions limit by province
-    for region in config.model_regions:
-        for period in config.model_periods:
-            curs.execute(f"""REPLACE INTO
-                        EmissionLimit(regions, periods, emis_comm, emis_limit, emis_limit_units)
-                        VALUES('{region}', {period}, "CO2eq", {emis[period]*base_emis[region]}, "ktCO2eq")""")
-    
-    conn.commit()
-    conn.execute("VACUUM;")
-    
-    conn.commit()
-    conn.close()
-    
-    print("Finished.")
-
-
-
 if __name__ == "__main__":
-    
+
     build_database()

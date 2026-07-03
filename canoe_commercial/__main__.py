@@ -1,8 +1,9 @@
 """
-For calling from command line
+Entry point for running the commercial sector module from the command line.
+
+    python -m canoe_commercial
 """
 
-# import commercial_sector
+from canoe_commercial.commercial_sector import build_database
 
-# commercial_sector.build_database()
-print("`__main__.py` usage deprecated. Run the commercial_sector module")
+build_database()

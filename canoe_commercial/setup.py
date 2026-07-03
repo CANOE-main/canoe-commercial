@@ -1,262 +1,256 @@
 """
-Sets up configuration for buildings sector aggregation
-Written by Ian David Elder for the CANOE model
+Configuration for commercial sector aggregation.
 """
+from __future__ import annotations
 
 import os
+import tomllib
+from pathlib import Path
+from typing import Literal, Optional
+
 import pandas as pd
-import yaml
-import requests
-import urllib.request
-import zipfile
-import sqlite3
-from canoe_schema import get_sql_schema
+from pydantic import BaseModel, ConfigDict, Field
 
+import canoe_commercial.data_scraper as data_scraper
 
-def instantiate_database():
-    
-    # Check if database exists or needs to be built
-    build_db = not os.path.exists(config.database_file)
 
-    # Connect to the new database file
-    conn = sqlite3.connect(config.database_file)
-    curs = conn.cursor() # Cursor object interacts with the sqlite db
+class ComstockConfig(BaseModel):
+    url: str
+    data_year: int
+    building_types: list[str]
+    reference: str
+
 
-    # Build the database if it doesn't exist. Otherwise clear all data if forced
-    sql_schema = get_sql_schema(config.params['canoe_schema'])
-    if config.params['force_wipe_database']:
-        tables = [t[0] for t in curs.execute("""SELECT name FROM sqlite_master WHERE type='table';""").fetchall()]
-        for table in tables:
-            curs.execute(f"DELETE FROM '{table}'")
-        print("Database wiped prior to aggregation. See params.\n")
-    if build_db or config.params['force_wipe_database']:
-        curs.executescript(sql_schema)
-
-    # VACUUM operation to clean up any empty rows
-    conn.execute("VACUUM;")
-    conn.commit()
-
-    conn.close()
-
-
-
-class reference:
-    """
-    Stores a single reference and its attributes
-    - id: the unique id for the source_id column
-    - citation: the full citation to go in the DataSource table
-    """
-
-    id: str
-    citation: str
-
-    def __init__(self, id: str, citation: str):
-        self.id = id
-        self.citation = citation
-
-
-class bibliography:
-    """This class stores references and handles unique indexing"""
-
-    references: dict[str, reference] = dict()
-
-    def __iter__(self):
-        for name, ref in self.references.items():
-            yield ref
-
-    def add(cls, name: str, citation: str) -> reference | None:
-        """Add a reference to the log and return the reference object"""
-
-        if name in cls.references:
-            return cls.references[name]
-        else:
-            num = len(cls.references.keys()) + 1
-            id = f"C{num}" if num >= 10 else f"C0{num}" # C01 -> C99 unique IDs
-            ref = reference(id=id, citation=citation)
-            cls.references[name] = ref
-            return ref
-    
-    def get(cls, name: str) -> reference | None:
-        """Returns a reference by its semantic name"""
-
-        if name not in cls.references:
-            print(f"Tried to get a reference that had not been added yet: {name}")
-            return
-        else:
-            return cls.references[name]
-
-
-
-class config:
-
-    # File locations
-    _this_dir = "./"
-    input_files = _this_dir + 'input_files/'
-    cache_dir = _this_dir + "data_cache/"
-
-    refs: bibliography = bibliography()
-    data_ids = set(['COMHR001', 'COMHR001'])
-
-    if not os.path.exists(cache_dir): os.mkdir(cache_dir)
-
-    tech_vints = {}
-    lifetimes = {}
-
-    _instance = None # singleton pattern
-
-
-    def __new__(cls, *args, **kwargs):
-
-        if isinstance(cls._instance, cls): return cls._instance
-        cls._instance = super(config, cls).__new__(cls, *args, **kwargs)
-
-        cls._get_params(cls._instance)
-        cls._get_files(cls._instance)
-        cls._get_aeo_data(cls._instance)
-        cls._get_gdp_projections(cls._instance)
-        cls._get_rninja_api(cls._instance)
-        cls._get_references(cls._instance)
-
-        print('Instantiated setup config.\n')
-
-        return cls._instance
-
-
-    def _get_params(cls):
-        
-        stream = open(config.input_files + "params.yaml", 'r')
-        config.params = dict(yaml.load(stream, Loader=yaml.Loader))
-
-        config.new_techs = pd.read_csv(config.input_files + 'new_technologies.csv', index_col=0)
-        config.existing_techs = pd.read_csv(config.input_files + 'existing_technologies.csv', index_col=0)
-        config.import_techs = pd.read_csv(config.input_files + 'import_technologies.csv', index_col=0)
-        config.regions = pd.read_csv(config.input_files + 'regions.csv', index_col=0)
-        config.fuel_commodities = pd.read_csv(config.input_files + 'fuel_commodities.csv', index_col=0)
-        config.end_use_demands = pd.read_csv(config.input_files + 'end_use_demands.csv', index_col=0)
-        config.time = pd.read_csv(config.input_files + 'time.csv', index_col=0)
-
-        config.new_techs = config.new_techs.loc[config.new_techs['include_new']]
-        config.all_techs = [*config.new_techs.index.values, *config.existing_techs.index.values]
-
-        # Included regions and future periods
-        config.model_periods = list(config.params['model_periods'])
-        config.model_periods.sort()
-        config.model_regions = config.regions.loc[(config.regions['include'])].index.unique().to_list()
-        config.model_regions.sort()
-
-
-
-    def _get_files(cls):
-
-        # config.schema_file = config.input_files + config.params['sqlite_schema']
-        config.database_file = config.params['sqlite_database']
-        config.excel_template_file = config.input_files + config.params['excel_template']
-        config.excel_target_file = config._this_dir + config.params['excel_output']
-
-
-    
-    def _get_references(cls):
-
-        config.refs.add('aeo', config.params['aeo_reference'])
-
-
-
-    def _get_aeo_data(cls):
-
-        config.aeo_cdm = pd.read_excel(config.input_files + 'ktekx.xlsx', sheet_name='ktek', skiprows=68, index_col=False).iloc[1:,0:27]
-        
-        # Rename integer indexing to readable values to improve code readability and minimise bugs
-        cdm_idx = pd.read_csv(config.input_files + 'aeo_cdm_indexing.csv', index_col=0)
-        for col in config.aeo_cdm.columns:
-            if col in cdm_idx.columns: config.aeo_cdm[col] = config.aeo_cdm[col].map(lambda n: cdm_idx.loc[n, col])
-
-        config.aeo_cdm['techname'] = config.aeo_cdm['techname'].str.lower()
-        
-
-
-    def _get_gdp_projections(cls) -> pd.DataFrame:
-
-        config.gdp_index = dict()
-
-        file = 'gdp_projections.csv'
-        if os.path.isfile(config.cache_dir + file):
-            df_gdp = pd.read_csv(config.cache_dir + file, index_col=0)
-            print(f"Got {file} from local cache.")
-        else: 
-            df_gdp = pd.read_csv(config.params['gdp_url'])
-            print(f"Downloading {file}...")
-
-            # Filter and rename columns
-            df_gdp = df_gdp.loc[(df_gdp['Variable'] == 'Real Gross Domestic Product ($2012 Millions)') & (df_gdp['Scenario'] == 'Global Net-zero')]
-            df_gdp = df_gdp[['Year','Value']].rename({"Year": "year", "Value": "gdp"}, axis='columns').set_index('year')
-        
-            df_gdp.to_csv(config.cache_dir + file)
-            print(f"Cached {file} locally.")
-
-        # Index GDP to base year GDP by region
-        df_gdp = df_gdp / df_gdp.loc[config.params['base_year']]
-        config.gdp_index = df_gdp
-
-        
-
-    # Have to put this here or it's awkward circular imports with utils
-    def _get_statcan_table(table, save_as=None, filter:'function'=None, **kwargs):
-
-        if save_as == None: save_as = f"statcan_{table}.csv"
-        if os.path.splitext(save_as)[1] != ".csv": save_as += ".csv"
-
-        if not config.params['force_download'] and os.path.isfile(config.cache_dir + save_as):
-
-            try:
-
-                df = pd.read_csv(config.cache_dir + save_as, index_col=0)
-                
-                print(f"Got Statcan table {table} ({save_as}) from local cache.")
-                return df
-            
-            except Exception as e:
-
-                print(f"Could not get Statcan table {table} from local cache. Trying to download instead.")
-
-        # Make a request from the API for the table, returns response status and url for download
-        url = f"https://www150.statcan.gc.ca/t1/wds/rest/getFullTableDownloadCSV/{table}/en"
-        response = requests.get(url)
-
-        # If successful, download the table
-        if response.ok:
-
-            print(f"Downloading Statcan table {table}...")
-
-            # Download and open the zip file
-            filehandle,_ = urllib.request.urlretrieve(response.json()['object'])
-            zip_file_object = zipfile.ZipFile(filehandle, 'r')
-
-            # Read the table from inside the zip file
-            from_file = zip_file_object.open(f"{table}.csv", "r")
-            df = pd.read_csv(from_file, **kwargs)
-            from_file.close()
-
-            if filter: df = filter(df)
-
-            df.to_csv(config.cache_dir + save_as)
-
-            print(f"Cached Statcan table {table} as {save_as}.")
-            return df
-
-        else:
-
-            print(f"Request for {table} from Statcan failed. Status: {response.status_code}")
-            return None
-    
-
-
-    def _get_rninja_api(cls):
-
-        with open('input_files/rninja_api_token.txt') as token_file:
-            token = token_file.read()
-        config.rninja_api = token
-
+class DataQualityProfile(BaseModel):
+    cred: int
+    geog: int
+    struc: int
+    tech: int
+    time: int
+
+    def as_kwargs(self) -> dict[str, int]:
+        return {f"dq_{k}": v for k, v in self.model_dump().items()}
+
+
+class WeatherConfig(BaseModel):
+    us_temperature_url: str
+    us_humidity_url: str
+    ca_temperature_url: str
+    ca_humidity_url: str
+    reference: str
+
+
+class EpaUnitFactors(BaseModel):
+    CO2: float
+    CH4: float
+    N2O: float
+
+
+class GWPFactors(BaseModel):
+    CO2: float
+    CH4: float
+    N2O: float
+
+
+class EfficiencyFactors(BaseModel):
+    EER: float
+
+
+class CostFactors(BaseModel):
+    aeo: float
+
+
+class ConversionFactors(BaseModel):
+    epa_units: EpaUnitFactors
+    gwp: GWPFactors
+    efficiency: EfficiencyFactors
+    cost: CostFactors
+
+
+class CANOECommercialConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    # Identity
+    schema_version: str
+    version: str
+    sector_abv: str = "COM"
+    sector_longname: str = "commercial"
+    data_id_prefix: str
+    data_version: str
+
+    # File paths
+    db_dir: str = "."
+    sqlite_database: str
+    excel_template: str
+    excel_output: str
+    input_files: str = "input_files/"
+    cache_dir: str = "data_cache/"
+
+    # Model scope
+    future_periods: list[int]
+    province_list: list[str]
+    base_year: int
+    period_step: int
+    timezone: str
+
+    # Runtime switches
+    validation_behavior: Literal["error", "warning"] = "error"
+    force_download: bool = False
+    show_plots: bool = True
+    clone_to_xlsx: bool = False
+    include_dsd: bool = True
+    include_emissions: bool = False
+    force_generate_weather_maps: bool = False
+
+    # Parameters
+    sec_tolerance: float
+    other_electrification_factor: float
+    cef_note: str
+    cef_reference: str
+    weather_year: int
+
+    # GDP
+    gdp_url: str
+    gdp_scenario: str = "Global Net-zero"
+    gdp_variable: str = "Real Gross Domestic Product ($2012 Millions)"
+    gdp_data_year: int
+    gdp_reference: str
+
+    # Population
+    population_m_scenario: str = "Projection scenario M1: medium-growth"
+    pop_reference: str
+
+    # AEO
+    aeo_installed_year: int
+    aeo_reference: str
+
+    # NRCan
+    nrcan_url: str
+    nrcan_reference: str
+
+    # EPA emissions
+    epa_year: int
+    epa_url: str
+    epa_reference: str
+    emission_commodity: str
+    emission_activity_units: str
+
+    # Currency
+    final_currency: str
+    final_currency_year: int
+    inflation_index: str
+    aeo_currency_year: int
+    aeo_currency: str
+
+    # Nested config
+    comstock: ComstockConfig
+    weather: WeatherConfig
+    conversion_factors: ConversionFactors
+
+    # DQ profiles
+    dq_demands: DataQualityProfile
+    dq_efficiency: DataQualityProfile
+    dq_existing_capacity: DataQualityProfile
+    dq_costs: DataQualityProfile
+    dq_emissions: DataQualityProfile
+    dq_capacity_factor: DataQualityProfile
+    dq_fuel_splits: DataQualityProfile
+    dq_lifetime: DataQualityProfile
+
+    # Runtime data — populated by _load_data(), not sourced from TOML
+    regions: Optional[pd.DataFrame] = None
+    new_techs: Optional[pd.DataFrame] = None
+    existing_techs: Optional[pd.DataFrame] = None
+    import_techs: Optional[pd.DataFrame] = None
+    fuel_commodities: Optional[pd.DataFrame] = None
+    end_use_demands: Optional[pd.DataFrame] = None
+    time: Optional[pd.DataFrame] = None
+    aeo_cdm: Optional[pd.DataFrame] = None
+    gdp_index: Optional[pd.DataFrame] = None
+    populations: Optional[dict] = None
+    all_techs: list[str] = Field(default_factory=list)
+    rninja_api: str = ""
+    sources: dict = Field(default_factory=dict)
+    data_ids: set = Field(default_factory=set)
+
+    @property
+    def model_periods(self) -> list[int]:
+        return sorted(self.future_periods)
+
+    @property
+    def model_regions(self) -> list[str]:
+        return sorted(self.province_list)
+
+    @property
+    def database_file(self) -> str:
+        return str(Path(self.db_dir) / self.sqlite_database)
+
+    @property
+    def excel_template_file(self) -> str:
+        return self.input_files + self.excel_template
+
+    @property
+    def excel_target_file(self) -> str:
+        return str(Path(self.db_dir) / self.excel_output)
+
+    def data_id(self, text: str = '') -> str:
+        id = f"{self.data_id_prefix}{text}{self.data_version}"
+        self.data_ids.add(id)
+        return id
+
+    @classmethod
+    def validate_from_toml(cls, toml_dir: str = "input_files") -> "CANOECommercialConfig":
+        path = Path(toml_dir) / "params.toml"
+        with open(path, "rb") as f:
+            raw = tomllib.load(f)
+        cfg = cls.model_validate(raw)
+        cfg._load_data()
+        return cfg
+
+    def _load_data(self) -> None:
+        if not os.path.exists(self.cache_dir):
+            os.mkdir(self.cache_dir)
+
+        self.regions = pd.read_csv(self.input_files + "regions.csv", index_col=0)
+        self.new_techs = pd.read_csv(self.input_files + "new_technologies.csv", index_col=0)
+        self.existing_techs = pd.read_csv(self.input_files + "existing_technologies.csv", index_col=0)
+        self.import_techs = pd.read_csv(self.input_files + "import_technologies.csv", index_col=0)
+        self.fuel_commodities = pd.read_csv(self.input_files + "fuel_commodities.csv", index_col=0)
+        self.end_use_demands = pd.read_csv(self.input_files + "end_use_demands.csv", index_col=0)
+        self.time = pd.read_csv(self.input_files + "time.csv", index_col=0)
+
+        self.new_techs = self.new_techs.loc[self.new_techs["include_new"]]
+        self.all_techs = [*self.new_techs.index.values, *self.existing_techs.index.values]
+
+        self.aeo_cdm = data_scraper.fetch_aeo_data(
+            aeo_file=self.input_files + "ktekx.xlsx",
+            indexing_file=self.input_files + "aeo_cdm_indexing.csv",
+        )
+
+        self.populations = data_scraper.fetch_population_projections(
+            regions_df=self.regions,
+            cache_dir=self.cache_dir,
+            force_download=self.force_download,
+        )
+
+        self.gdp_index = data_scraper.fetch_gdp_projections(
+            gdp_url=self.gdp_url,
+            base_year=self.base_year,
+            cache_dir=self.cache_dir,
+            force_download=self.force_download,
+        )
+
+        try:
+            with open("input_files/rninja_api_token.txt") as token_file:
+                self.rninja_api = token_file.read()
+        except FileNotFoundError:
+            self.rninja_api = "WARNING: rninja_api_token.txt not found"
+
+        from canoe_commercial.sources import build_sources
+        self.sources = build_sources(self)
+
+        print("Instantiated setup config.\n")
 
 
 # Instantiate on import
-config()
+config: CANOECommercialConfig = CANOECommercialConfig.validate_from_toml("input_files")
