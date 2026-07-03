@@ -5,7 +5,7 @@ For human reference only — not consumed by any tooling.
 | Source | What it provides | Accessed by | Cache file |
 |---|---|---|---|
 | NRCan Comprehensive Energy Use Database (CEUD) | Secondary energy consumption by end-use and fuel for Canadian provinces, commercial sector tables 1, 24, 32 | `data_scraper.fetch_nrcan_ceud_table` (via `utils.get_compr_db` wrapper) | `data_cache/<region_nrcan_id>_table<n>.csv` |
-| US EPA GHG Emission Factors Hub (2024) | CO2, CH4, N2O emission factors by fuel type (lb/MMBtu) | `data_scraper.fetch_emission_factors` | `data_cache/ghg-emission-factors-hub-2024.csv` |
+| US EPA GHG Emission Factors Hub (2025) | CO2, CH4, N2O emission factors by fuel type (lb/MMBtu) | `data_scraper.fetch_emission_factors` | `data_cache/ghg-emission-factors-hub-2025.csv` |
 | StatCan Table 17100009 | Historical quarterly provincial population (Q1 values used) | `data_scraper.fetch_population_projections` | `data_cache/population_historical.csv` |
 | StatCan Table 17100057 | Projected provincial population by scenario, gender, age (M1 scenario used) | `data_scraper.fetch_population_projections` | `data_cache/population_projection.csv` |
 | StatCan Table 25100029 | Provincial energy use by fuel type for Atlantic provinces (used to disaggregate NRCan Atlantic aggregate) | `data_scraper.fetch_statcan_table` (via `utils.get_statcan_table` wrapper) | `data_cache/statcan_atlantic_energy.csv` |
