@@ -76,7 +76,7 @@ def data_year(period_or_vintage: int) -> int:
         return period_or_vintage
     else:
         # New vintages take period-end data
-        return period_or_vintage + config.params['period_step']
+        return period_or_vintage + config.period_step
 
 
 

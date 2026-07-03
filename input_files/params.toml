@@ -6,11 +6,11 @@ sector_longname = "commercial"
 data_id_prefix = "COMHR"
 data_version = "001"
 db_dir = "."
-sqlite_database = "canoe.sqlite"
+sqlite_database = "canoe-commercial.new.sqlite"
 excel_template = "Template spreadsheet (make a copy).xlsx"
 excel_output = "commercial.xlsx"
 
-future_periods = [2025, 2030, 2035, 2040, 2045, 2050]
+future_periods = [2025, 2030, 2035, 2040, 2045]
 province_list = ["ON", "AB", "BC", "QC", "MB", "SK", "NLLAB", "PEI", "NS", "NB"]
 
 base_year = 2022
