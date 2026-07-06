@@ -98,6 +98,11 @@ def stock_vintages(
 
     if stock_year not in vints: vints.append(stock_year)
 
+    # Has to be an existing vintage but we often use e.g. 2024 to represent end of 2025
+    # because Temoa traps us into start-of-period indexing
+    if vints[-1] >= config.model_periods[0]:
+        vints[-1] = config.model_periods[0] - 1
+
     # Only one vintage so all weight in there
     if len(vints) == 1: weights = [1]
     # Stock year lands on a stepped vintage so divide evenly
