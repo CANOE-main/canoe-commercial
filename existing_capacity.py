@@ -239,9 +239,12 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
 
         for period in config.model_periods:
             
-            dem = ann_dem.loc[period].iloc[0]
-            note = (f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
-                    f"indexed to projected provincial gdp growth (CER, {config.params['gdp_data_year']})")
+            yr = utils.data_year(period)
+            dem = ann_dem.loc[yr].iloc[0]
+            note = (
+                f"Efficiency (AEO, {aeo_year}) times secondary energy consumption (NRCan, {base_year}) "
+                f"indexed to projected provincial gdp growth by {yr} (CER, {config.params['gdp_data_year']})"
+            )
 
             curs.execute(
                 f"""REPLACE INTO
@@ -313,7 +316,7 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         
 
         # Spread existing capacity evenly over existing vintages
-        vints, weights = utils.stock_vintages(base_year, life)
+        vints, weights = utils.stock_vintages(life)
 
         # Only indexed by vintage
         for v in range(len(vints)):
@@ -378,15 +381,15 @@ def aggregate_existing_sphc(region: str, df_dsd: pd.DataFrame) -> pd.DataFrame:
         note = f"Mean hourly demand divided by peak hourly demand from Comstock (NREL, {comstock_year})"
         ref = config.refs.get('comstock')
 
-        for period in config.model_periods:
+        for vint in vints:
 
-            if max(vints) + life <= period: continue # no vintage would live this long
+            if vint + life <= config.model_periods[0]: continue # this vintage never lives
 
             curs.execute(
                 f"""REPLACE INTO
-                LimitAnnualCapacityFactor(region, period, tech, output_comm, operator, factor,
+                LimitAnnualCapacityFactor(region, tech, output_comm, vintage, operator, factor,
                 notes, data_source, dq_cred, dq_geog, dq_struc, dq_tech, dq_time, data_id)
-                VALUES('{region}', {period}, '{tech}', '{eu_config['comm']}', 'le', {acf},
+                VALUES('{region}', '{tech}', '{eu_config['comm']}', {vint}, 'le', {acf},
                 '{note}', '{ref.id}', 1, 2, 5, 2, 3, '{utils.data_id(region)}')"""
             )
             
@@ -487,10 +490,12 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
         ## TechInputSplit
         for period in config.model_periods:
 
+            yr = utils.data_year(period)
+
             tis = ti_splits[fuel]
 
             # Linear interpolation towards reducing non-elc fuels by electrification factor
-            lin_f = (period - base_year)/(config.model_periods[-1] - base_year) # 0 -> 1 linear factor over time
+            lin_f = (yr - base_year)/(utils.data_year(config.model_periods[-1]) - base_year)
             if fuel == 'electricity': target = elc_fact + tis * ( 1 - elc_fact ) # elc increases
             else: target = tis * (1 - elc_fact) # all others decrease by elc_fact
 
@@ -547,10 +552,13 @@ def aggregate_other(region: str, df_exs: pd.DataFrame, df_dsd: pd.DataFrame):
     ref = config.refs.add('nrcan_gdp', f"{nrcan_ref}; {config.params['gdp_reference']}")
     for period in config.model_periods:
         
-        dem = ann_dem.loc[period].iloc[0]
-        
-        dem = ann_dem.loc[period].iloc[0]
-        note = f"Annual secondary energy consumption summed over all fuels minus space heating and cooling (NRCan, {base_year})"
+        yr = utils.data_year(period)
+        dem = ann_dem.loc[yr].iloc[0]
+        note = (
+            "Annual secondary energy consumption summed over all "
+            f"fuels minus space heating and cooling (NRCan, {base_year}) "
+            f"indexed to projected provincial gdp growth by {yr} (CER, {config.params['gdp_data_year']})"
+        )
 
         curs.execute(
             f"""REPLACE INTO

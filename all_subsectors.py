@@ -59,8 +59,8 @@ def pre_process():
         for h, row in config.time.iterrows():
             curs.execute(
                 f"""REPLACE INTO
-                TimeSegmentFraction(season, tod, segfrac)
-                VALUES('{row['season']}', '{row['tod']}', {1/8760})"""
+                TimeSegmentFraction(period, season, tod, segfrac)
+                VALUES('{period}', '{row['season']}', '{row['tod']}', {1/8760})"""
             )
 
         for i, season in enumerate(config.time['season'].unique()):
