@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 import canoe_commercial.data_scraper as data_scraper
 
@@ -79,7 +79,7 @@ class CANOECommercialConfig(BaseModel):
     data_version: str
 
     # File paths
-    db_dir: str = "."
+    db_dir: Path
     sqlite_database: str
     excel_template: str
     excel_output: str
@@ -250,6 +250,11 @@ class CANOECommercialConfig(BaseModel):
         self.sources = build_sources(self)
 
         print("Instantiated setup config.\n")
+
+    @field_validator("db_dir")
+    @classmethod
+    def expand_path(cls, v: Path) -> Path:
+        return v.expanduser()
 
 
 # Instantiate on import

@@ -257,7 +257,7 @@ def aggregate_imports():
                     flag='p',
                     sector='commercial',
                     description=description,
-                    data_id='COMHR001',
+                    data_id='COMHR003',
                 )
             ]
         )
@@ -281,7 +281,7 @@ def aggregate_imports():
                         output_comm=out_comm['comm'],
                         efficiency=1,
                         notes=f"{description})",
-                        data_id='COMHR001',
+                        data_id='COMHR003',
                     )
                 ]
             )
