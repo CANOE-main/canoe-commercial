@@ -45,7 +45,7 @@ def add_electricity_bridge(
     tech_row = Technology(
         tech=transfer_tech,
         flag="p",
-        sector="residential",
+        sector="commercial",
         unlim_cap=1,
         annual=0,
         description="Electricity transfer from the electricity sector to commercial",
