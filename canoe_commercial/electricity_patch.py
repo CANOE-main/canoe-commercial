@@ -21,9 +21,9 @@ def add_electricity_bridge(
         E_elc_dem -> E_C_ELC -> C_elc
     """
     ids = {
-        "CAN": f"COMHR{module_config.version}",
+        "CAN": f"COMHR{module_config.data_version}",
         **{
-            region.name: f"COMHR{region.name}{module_config.version}"
+            region.name: f"COMHR{region.name}{module_config.data_version}"
             for _, region in module_config.regions.iterrows()
         }
     }
