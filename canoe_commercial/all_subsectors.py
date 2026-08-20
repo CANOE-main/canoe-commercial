@@ -15,6 +15,7 @@ from canoe_schema.v4_0.models import (
     Technology,
 )
 
+from canoe_commercial.electricity_patch import add_electricity_bridge
 from canoe_commercial.setup import config
 import canoe_commercial.comstock_dsd as comstock_dsd
 import canoe_commercial.existing_capacity as existing_capacity
@@ -75,6 +76,12 @@ def pre_process():
             ]
         )
         conn.executemany(sql, rows)
+
+    # Add electricity patch
+    add_electricity_bridge(
+        config,
+        conn.cursor()
+    )
 
     conn.commit()
     conn.close()

@@ -11,6 +11,7 @@ from matplotlib import pyplot as pp
 
 import canoe_commercial.comstock_dsd as comstock_dsd
 import canoe_commercial.data_scraper as data_scraper
+from canoe_commercial.electricity_patch import add_electricity_bridge
 import canoe_commercial.emission_activity as emission_activity
 import canoe_commercial.existing_capacity as existing_capacity
 import canoe_commercial.new_capacity as new_capacity
@@ -46,6 +47,12 @@ def build_database() -> None:
 
     # Step 2: Write module-specific commodity rows
     techcom.write_commodities(cfg, db_conn)
+
+    # Add electricity patch
+    add_electricity_bridge(
+        cfg,
+        db_conn.cursor()
+    )
 
     # Step 3: Per-region subsector processing
     for region in cfg.province_list:
