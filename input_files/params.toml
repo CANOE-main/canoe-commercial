@@ -69,7 +69,7 @@ final_currency_year = 2020
 inflation_index = "gdp_deflator"
 
 [comstock]
-url = "https://oedi-data-lake.s3.amazonaws.com/nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2024/comstock_amy2018_release_2/timeseries_aggregates/by_state/upgrade%3D39/state%3D<su>/up39-<sl>-<b>.csv"
+url = "https://oedi-data-lake.s3.amazonaws.com/nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2024/comstock_amy2018_release_2/timeseries_aggregates/by_state/upgrade=0/state=<su>/up00-<sl>-<b>.csv"
 data_year = 2024
 building_types = [
   "fullservicerestaurant",
@@ -87,7 +87,7 @@ building_types = [
   "smalloffice",
   "warehouse",
 ]
-reference = "NREL. (2024). ComStock-NREL (amy2018, v2, upgrade 39). https://data.openei.org/s3_viewer?bucket=oedi-data-lake"
+reference = "NREL. (2024). ComStock-NREL (amy2018, v2, upgrade 0). https://data.openei.org/s3_viewer?bucket=oedi-data-lake"
 
 [weather]
 us_temperature_url = "https://www.renewables.ninja/country_downloads/US/ninja-weather-country-US-temperature_pop_wtd-merra2.csv"
